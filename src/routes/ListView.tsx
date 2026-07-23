@@ -249,6 +249,13 @@ function ListView() {
       .sort((a, b) => a.position - b.position),
   }))
 
+  // Le categorie che contengono articoli hanno la priorità e restano in alto,
+  // ciascun blocco mantiene al suo interno l'ordine per "position".
+  const orderedGroups = [
+    ...groups.filter((g) => g.items.length > 0),
+    ...groups.filter((g) => g.items.length === 0),
+  ]
+
   return (
     <main className="list-view">
       <header className="app-header app-header-compact">
@@ -267,7 +274,7 @@ function ListView() {
           </div>
         )}
 
-        {groups.map((group) => {
+        {orderedGroups.map((group) => {
           // La sezione "Senza categoria" compare solo se contiene articoli;
           // le categorie vere restano sempre visibili per poterle gestire.
           if (!group.category && group.items.length === 0) return null
