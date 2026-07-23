@@ -13,6 +13,8 @@ import {
   IconPlus,
   IconTrash,
 } from '../components/icons'
+import Toast from '../components/Toast'
+import { useUndoToast } from '../hooks/useUndoToast'
 import type { Category, Item } from '../lib/types'
 
 const UNCATEGORIZED = '__uncategorized__'
@@ -26,6 +28,7 @@ function ListView() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
+  const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
 
   const list = useLiveQuery(async () => (listId ? db.lists.get(listId) : undefined), [listId])
 
@@ -144,6 +147,18 @@ function ListView() {
       payload: {},
       clientTimestamp: now,
     })
+
+    showUndo(`Categoria "${category.name}" eliminata`, async () => {
+      const restoredAt = new Date().toISOString()
+      await db.categories.update(category.id, { deletedAt: null, updatedAt: restoredAt })
+      await enqueueAndFlush({
+        id: category.id,
+        entity: 'category',
+        op: 'update',
+        payload: { deletedAt: null },
+        clientTimestamp: restoredAt,
+      })
+    })
   }
 
   async function moveCategory(category: Category, direction: -1 | 1) {
@@ -195,6 +210,18 @@ function ListView() {
     const now = new Date().toISOString()
     await db.items.update(item.id, { deletedAt: now, updatedAt: now })
     await enqueueAndFlush({ id: item.id, entity: 'item', op: 'delete', payload: {}, clientTimestamp: now })
+
+    showUndo(`"${item.name}" eliminato`, async () => {
+      const restoredAt = new Date().toISOString()
+      await db.items.update(item.id, { deletedAt: null, updatedAt: restoredAt })
+      await enqueueAndFlush({
+        id: item.id,
+        entity: 'item',
+        op: 'update',
+        payload: { deletedAt: null },
+        clientTimestamp: restoredAt,
+      })
+    })
   }
 
   const groups = [...categories, null].map((category) => ({
@@ -347,6 +374,15 @@ function ListView() {
           </button>
         )}
       </div>
+
+      {pending && (
+        <Toast
+          message={pending.message}
+          actionLabel="Annulla"
+          onAction={confirmUndo}
+          onDismiss={dismiss}
+        />
+      )}
 
       <form onSubmit={handleAddItem} className="bottom-bar bottom-bar-item">
         <select value={newItemCategoryId} onChange={(e) => setNewItemCategoryId(e.target.value)}>

@@ -62,6 +62,7 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
   const changes: Record<string, unknown> = { updatedAt: new Date() }
   if (typeof m.payload.name === 'string') changes.name = m.payload.name
   if (typeof m.payload.position === 'number') changes.position = m.payload.position
+  if (m.payload.deletedAt === null) changes.deletedAt = null
 
   const [row] = await db
     .update(lists)
@@ -114,6 +115,7 @@ async function applyCategoryMutation(session: SessionPayload, m: MutationInput) 
   const changes: Record<string, unknown> = { updatedAt: new Date() }
   if (typeof m.payload.name === 'string') changes.name = m.payload.name
   if (typeof m.payload.position === 'number') changes.position = m.payload.position
+  if (m.payload.deletedAt === null) changes.deletedAt = null
 
   const [row] = await db
     .update(categories)
@@ -175,6 +177,7 @@ async function applyItemMutation(session: SessionPayload, m: MutationInput) {
   if ('quantity' in p) changes.quantity = p.quantity ? String(p.quantity) : null
   if ('categoryId' in p) changes.categoryId = p.categoryId ? String(p.categoryId) : null
   if (typeof p.position === 'number') changes.position = p.position
+  if (p.deletedAt === null) changes.deletedAt = null
   if (typeof p.checked === 'boolean') {
     changes.checked = p.checked
     if (p.checked) {

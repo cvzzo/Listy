@@ -5,6 +5,9 @@ import { db, clearLocalData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { clearSession, getSession } from '../lib/auth/session'
 import { IconCart, IconChevronRight, IconLogout, IconPlus, IconShare, IconTrash } from '../components/icons'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Toast from '../components/Toast'
+import { useUndoToast } from '../hooks/useUndoToast'
 import type { List } from '../lib/types'
 
 function Lists() {
@@ -12,6 +15,8 @@ function Lists() {
   const session = getSession()
   const [newListName, setNewListName] = useState('')
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
 
   const lists = useLiveQuery(async () => {
     if (!session) return []
@@ -47,9 +52,22 @@ function Lists() {
     const now = new Date().toISOString()
     await db.lists.update(list.id, { deletedAt: now, updatedAt: now })
     await enqueueAndFlush({ id: list.id, entity: 'list', op: 'delete', payload: {}, clientTimestamp: now })
+
+    showUndo(`"${list.name}" eliminata`, async () => {
+      const restoredAt = new Date().toISOString()
+      await db.lists.update(list.id, { deletedAt: null, updatedAt: restoredAt })
+      await enqueueAndFlush({
+        id: list.id,
+        entity: 'list',
+        op: 'update',
+        payload: { deletedAt: null },
+        clientTimestamp: restoredAt,
+      })
+    })
   }
 
   async function handleLogout() {
+    setConfirmLogout(false)
     await clearLocalData()
     clearSession()
     navigate('/')
@@ -86,7 +104,7 @@ function Lists() {
             </button>
           </div>
         </div>
-        <button type="button" className="icon-btn" onClick={handleLogout} aria-label="Esci">
+        <button type="button" className="icon-btn" onClick={() => setConfirmLogout(true)} aria-label="Esci">
           <IconLogout />
         </button>
       </header>
@@ -120,6 +138,15 @@ function Lists() {
         </ul>
       </div>
 
+      {pending && (
+        <Toast
+          message={pending.message}
+          actionLabel="Annulla"
+          onAction={confirmUndo}
+          onDismiss={dismiss}
+        />
+      )}
+
       <form onSubmit={handleCreateList} className="bottom-bar">
         <input
           value={newListName}
@@ -130,6 +157,17 @@ function Lists() {
           <IconPlus />
         </button>
       </form>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        title="Uscire dalla famiglia?"
+        message={`Uscirai da "${session?.family.name}" su questo dispositivo. Potrai rientrare in qualsiasi momento con il codice invito.`}
+        confirmLabel="Esci"
+        cancelLabel="Annulla"
+        danger
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={handleLogout}
+      />
     </main>
   )
 }
