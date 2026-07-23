@@ -1,0 +1,226 @@
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+}
+
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 100svh;
+  text-align: center;
+}
+
+.home .logo {
+  border-radius: 20%;
+  margin-bottom: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.tabs button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+}
+
+.tabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+form.add-item,
+form.add-category {
+  flex-direction: row;
+  margin-top: 16px;
+}
+
+form.add-item select {
+  flex: 0 0 auto;
+}
+
+form input,
+form select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font: inherit;
+}
+
+form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font-size: 14px;
+}
+
+button {
+  cursor: pointer;
+}
+
+form button[type='submit'] {
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.error {
+  color: #e5484d;
+}
+
+.lists-page header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.list-cards {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list-cards li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.list-cards a {
+  flex: 1;
+  display: block;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+.empty-state {
+  opacity: 0.7;
+  margin: 16px 0;
+}
+
+.share-invite {
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.list-view section {
+  margin-top: 16px;
+}
+
+.list-view h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.category-header h2 {
+  margin-bottom: 0;
+  cursor: text;
+}
+
+.category-header input {
+  font-size: 16px;
+  font-weight: 500;
+  padding: 2px 6px;
+}
+
+.category-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.category-actions button {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.category-actions button:hover {
+  opacity: 1;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.chip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-bg, transparent);
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.items {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.items li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.items li.checked label {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.items li label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.items li .added-by {
+  font-size: 12px;
+  opacity: 0.6;
+}
