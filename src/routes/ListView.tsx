@@ -10,6 +10,7 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconList,
+  IconPencil,
   IconPlus,
   IconTrash,
 } from '../components/icons'
@@ -224,10 +225,16 @@ function ListView() {
     })
   }
 
+  const categoryIds = new Set(categories.map((c) => c.id))
   const groups = [...categories, null].map((category) => ({
     category,
     items: items
-      .filter((item) => (category ? item.categoryId === category.id : item.categoryId === null))
+      .filter((item) =>
+        category
+          ? item.categoryId === category.id
+          : // articoli senza categoria o la cui categoria è stata eliminata
+            !item.categoryId || !categoryIds.has(item.categoryId),
+      )
       .sort((a, b) => a.position - b.position),
   }))
 
@@ -249,60 +256,74 @@ function ListView() {
           </div>
         )}
 
-        {groups.map(
-          (group) =>
-            group.items.length > 0 && (
-              <section key={group.category?.id ?? UNCATEGORIZED}>
-                {group.category ? (
-                  <div className="category-header">
-                    {editingCategoryId === group.category.id ? (
-                      <input
-                        autoFocus
-                        value={editingCategoryName}
-                        onChange={(e) => setEditingCategoryName(e.target.value)}
-                        onBlur={() => renameCategory(group.category!, editingCategoryName)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') renameCategory(group.category!, editingCategoryName)
-                          if (e.key === 'Escape') setEditingCategoryId(null)
-                        }}
-                      />
-                    ) : (
-                      <h2
-                        onClick={() => {
-                          setEditingCategoryId(group.category!.id)
-                          setEditingCategoryName(group.category!.name)
-                        }}
-                      >
-                        {group.category.name}
-                      </h2>
-                    )}
-                    <div className="category-actions">
-                      <button
-                        type="button"
-                        onClick={() => moveCategory(group.category!, -1)}
-                        aria-label="Sposta su"
-                      >
-                        <IconChevronUp />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveCategory(group.category!, 1)}
-                        aria-label="Sposta giù"
-                      >
-                        <IconChevronDown />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteCategory(group.category!)}
-                        aria-label="Elimina categoria"
-                      >
-                        <IconTrash size={14} />
-                      </button>
-                    </div>
+        {groups.map((group) => {
+          // La sezione "Senza categoria" compare solo se contiene articoli;
+          // le categorie vere restano sempre visibili per poterle gestire.
+          if (!group.category && group.items.length === 0) return null
+
+          return (
+            <section key={group.category?.id ?? UNCATEGORIZED}>
+              {group.category ? (
+                <div className="category-header">
+                  {editingCategoryId === group.category.id ? (
+                    <input
+                      autoFocus
+                      value={editingCategoryName}
+                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                      onBlur={() => renameCategory(group.category!, editingCategoryName)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') renameCategory(group.category!, editingCategoryName)
+                        if (e.key === 'Escape') setEditingCategoryId(null)
+                      }}
+                    />
+                  ) : (
+                    <h2
+                      onClick={() => {
+                        setEditingCategoryId(group.category!.id)
+                        setEditingCategoryName(group.category!.name)
+                      }}
+                    >
+                      {group.category.name}
+                    </h2>
+                  )}
+                  <div className="category-actions">
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(group.category!, -1)}
+                      aria-label="Sposta su"
+                    >
+                      <IconChevronUp />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(group.category!, 1)}
+                      aria-label="Sposta giù"
+                    >
+                      <IconChevronDown />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCategoryId(group.category!.id)
+                        setEditingCategoryName(group.category!.name)
+                      }}
+                      aria-label="Rinomina categoria"
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteCategory(group.category!)}
+                      aria-label="Elimina categoria"
+                    >
+                      <IconTrash size={14} />
+                    </button>
                   </div>
-                ) : (
-                  <h2 className="section-label">Senza categoria</h2>
-                )}
+                </div>
+              ) : (
+                <h2 className="section-label">Senza categoria</h2>
+              )}
+              {group.items.length > 0 ? (
                 <ul className="items">
                   {group.items.map((item) => (
                     <li key={item.id} className={item.checked ? 'checked' : ''}>
@@ -332,9 +353,12 @@ function ListView() {
                     </li>
                   ))}
                 </ul>
-              </section>
-            ),
-        )}
+              ) : (
+                <p className="category-empty-hint">Nessun articolo in questa categoria</p>
+              )}
+            </section>
+          )
+        })}
 
         {suggestions.length > 0 && (
           <div className="suggestions">

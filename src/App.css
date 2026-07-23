@@ -524,6 +524,14 @@ input::placeholder {
   background: var(--surface-2);
 }
 
+.category-empty-hint {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.45;
+  font-style: italic;
+  padding: 2px 4px 4px;
+}
+
 .section-label {
   font-size: 13px;
   font-weight: 700;
@@ -545,7 +553,7 @@ input::placeholder {
 
 .items li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 10px 10px 10px 14px;
   background: var(--surface);
@@ -559,9 +567,13 @@ input::placeholder {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 4px 0;
+}
+
+.check-row .item-name {
+  padding-top: 2px;
 }
 
 .check-row input[type='checkbox'] {
@@ -606,9 +618,8 @@ input::placeholder {
 }
 
 .item-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
   color: var(--text-strong);
 }
 
