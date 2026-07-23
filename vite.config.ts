@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Listy',
         short_name: 'Listy',
         description: 'La lista della spesa condivisa in famiglia',
-        theme_color: '#aa3bff',
+        theme_color: '#2f7ff0',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',

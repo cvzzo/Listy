@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, clearLocalData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { clearSession, getSession } from '../lib/auth/session'
+import { IconCart, IconChevronRight, IconLogout, IconPlus, IconShare, IconTrash } from '../components/icons'
 import type { List } from '../lib/types'
 
 function Lists() {
@@ -74,43 +75,60 @@ function Lists() {
 
   return (
     <main className="lists-page">
-      <header>
-        <div>
+      <header className="app-header">
+        <div className="app-header-title">
           <h1>{session?.family.name}</h1>
-          <p>
-            Codice invito: <strong>{session?.family.inviteCode}</strong>
-            <button type="button" className="share-invite" onClick={handleShareInvite}>
+          <div className="invite-row">
+            <span className="invite-code">{session?.family.inviteCode}</span>
+            <button type="button" className="pill-btn" onClick={handleShareInvite}>
+              <IconShare />
               {inviteCopied ? 'Copiato!' : 'Condividi'}
             </button>
-          </p>
+          </div>
         </div>
-        <button type="button" onClick={handleLogout}>
-          Esci
+        <button type="button" className="icon-btn" onClick={handleLogout} aria-label="Esci">
+          <IconLogout />
         </button>
       </header>
 
-      {lists.length === 0 && (
-        <p className="empty-state">Non hai ancora nessuna lista. Creane una qui sotto!</p>
-      )}
+      <div className="page-content">
+        {lists.length === 0 && (
+          <div className="empty-state">
+            <IconCart size={40} className="empty-state-icon" />
+            <p>Non hai ancora nessuna lista.</p>
+            <p className="empty-state-hint">Creane una qui sotto per iniziare!</p>
+          </div>
+        )}
 
-      <ul className="list-cards">
-        {lists.map((list) => (
-          <li key={list.id}>
-            <Link to={`/liste/${list.id}`}>{list.name}</Link>
-            <button type="button" onClick={() => deleteList(list)} aria-label="Elimina lista">
-              ×
-            </button>
-          </li>
-        ))}
-      </ul>
+        <ul className="list-cards">
+          {lists.map((list) => (
+            <li key={list.id} className="list-card">
+              <Link to={`/liste/${list.id}`} className="list-card-link">
+                <span className="list-card-name">{list.name}</span>
+                <IconChevronRight className="chevron" />
+              </Link>
+              <button
+                type="button"
+                className="icon-btn-ghost"
+                onClick={() => deleteList(list)}
+                aria-label="Elimina lista"
+              >
+                <IconTrash size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <form onSubmit={handleCreateList}>
+      <form onSubmit={handleCreateList} className="bottom-bar">
         <input
           value={newListName}
           onChange={(e) => setNewListName(e.target.value)}
           placeholder="Nuova lista, es. Spesa settimanale"
         />
-        <button type="submit">Aggiungi lista</button>
+        <button type="submit" className="fab" aria-label="Aggiungi lista">
+          <IconPlus />
+        </button>
       </form>
     </main>
   )

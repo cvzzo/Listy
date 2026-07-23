@@ -1,13 +1,32 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
+  --bg: #f4f5f9;
+  --surface: #ffffff;
+  --surface-2: #f0f1f6;
+  --border: #e6e7ee;
+  --text: #6b6a75;
+  --text-strong: #16151c;
+
+  --accent: #2f7ff0;
+  --accent-strong: #1d5fc4;
+  --accent-bg: rgba(47, 127, 240, 0.1);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --danger: #e5484d;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.04), 0 1px 1px rgba(20, 20, 40, 0.03);
+  --shadow-md: 0 8px 24px rgba(20, 20, 40, 0.08);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  font: 18px/145% var(--sans);
+  font: 16px/1.5 var(--sans);
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -19,20 +38,58 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
+    --bg: #0e0f13;
+    --surface: #1a1b21;
+    --surface-2: #212228;
+    --border: #2c2d35;
+    --text: #a3a2ad;
+    --text-strong: #f3f3f6;
+
+    --accent: #4c8fef;
+    --accent-strong: #6fa4f2;
+    --accent-bg: rgba(76, 143, 239, 0.16);
+    --success: #34c759;
+    --success-bg: rgba(52, 199, 89, 0.16);
+    --danger: #ff6b6f;
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  overflow-x: hidden;
 }
 
-h1 {
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3 {
   font-family: var(--sans);
-  font-weight: 500;
-  color: var(--text-h);
+  font-weight: 600;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+input,
+select {
+  font-size: 16px;
+  font-family: inherit;
+}
+
+a {
+  color: var(--accent);
 }

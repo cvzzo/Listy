@@ -5,6 +5,14 @@ import { db } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { getSession } from '../lib/auth/session'
 import { getFrequentItemNames } from '../lib/db/frequentItems'
+import {
+  IconArrowLeft,
+  IconChevronDown,
+  IconChevronUp,
+  IconList,
+  IconPlus,
+  IconTrash,
+} from '../components/icons'
 import type { Category, Item } from '../lib/types'
 
 const UNCATEGORIZED = '__uncategorized__'
@@ -14,9 +22,12 @@ function ListView() {
   const session = getSession()
   const [newItemName, setNewItemName] = useState('')
   const [newItemCategoryId, setNewItemCategoryId] = useState<string>(UNCATEGORIZED)
+  const [showAddCategory, setShowAddCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
+
+  const list = useLiveQuery(async () => (listId ? db.lists.get(listId) : undefined), [listId])
 
   const categories = useLiveQuery(async () => {
     if (!listId) return []
@@ -102,6 +113,7 @@ function ListView() {
       clientTimestamp: now,
     })
     setNewCategoryName('')
+    setShowAddCategory(false)
   }
 
   async function renameCategory(category: Category, name: string) {
@@ -194,119 +206,165 @@ function ListView() {
 
   return (
     <main className="list-view">
-      <Link to="/liste">← Tutte le liste</Link>
+      <header className="app-header app-header-compact">
+        <Link to="/liste" className="icon-btn" aria-label="Tutte le liste">
+          <IconArrowLeft />
+        </Link>
+        <h1 className="list-title">{list?.name}</h1>
+      </header>
 
-      {items.length === 0 && <p className="empty-state">Nessun articolo. Aggiungine uno qui sotto!</p>}
+      <div className="page-content">
+        {items.length === 0 && (
+          <div className="empty-state">
+            <IconList size={40} className="empty-state-icon" />
+            <p>Nessun articolo in questa lista.</p>
+            <p className="empty-state-hint">Aggiungine uno qui sotto!</p>
+          </div>
+        )}
 
-      {groups.map(
-        (group) =>
-          group.items.length > 0 && (
-            <section key={group.category?.id ?? UNCATEGORIZED}>
-              {group.category ? (
-                <div className="category-header">
-                  {editingCategoryId === group.category.id ? (
-                    <input
-                      autoFocus
-                      value={editingCategoryName}
-                      onChange={(e) => setEditingCategoryName(e.target.value)}
-                      onBlur={() => renameCategory(group.category!, editingCategoryName)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') renameCategory(group.category!, editingCategoryName)
-                        if (e.key === 'Escape') setEditingCategoryId(null)
-                      }}
-                    />
-                  ) : (
-                    <h2
-                      onClick={() => {
-                        setEditingCategoryId(group.category!.id)
-                        setEditingCategoryName(group.category!.name)
-                      }}
-                    >
-                      {group.category.name}
-                    </h2>
-                  )}
-                  <div className="category-actions">
-                    <button type="button" onClick={() => moveCategory(group.category!, -1)} aria-label="Sposta su">
-                      ▲
-                    </button>
-                    <button type="button" onClick={() => moveCategory(group.category!, 1)} aria-label="Sposta giù">
-                      ▼
-                    </button>
-                    <button type="button" onClick={() => deleteCategory(group.category!)} aria-label="Elimina categoria">
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <h2>Senza categoria</h2>
-              )}
-              <ul className="items">
-                {group.items.map((item) => (
-                  <li key={item.id} className={item.checked ? 'checked' : ''}>
-                    <label>
+        {groups.map(
+          (group) =>
+            group.items.length > 0 && (
+              <section key={group.category?.id ?? UNCATEGORIZED}>
+                {group.category ? (
+                  <div className="category-header">
+                    {editingCategoryId === group.category.id ? (
                       <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => toggleChecked(item)}
+                        autoFocus
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                        onBlur={() => renameCategory(group.category!, editingCategoryName)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') renameCategory(group.category!, editingCategoryName)
+                          if (e.key === 'Escape') setEditingCategoryId(null)
+                        }}
                       />
-                      {item.name}
-                      {item.quantity ? ` (${item.quantity})` : ''}
-                    </label>
-                    <span className="added-by">
-                      {item.checked ? `✓ ${item.checkedByName}` : `+ ${item.addedByName}`}
-                    </span>
-                    <button type="button" onClick={() => deleteItem(item)}>
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ),
-      )}
+                    ) : (
+                      <h2
+                        onClick={() => {
+                          setEditingCategoryId(group.category!.id)
+                          setEditingCategoryName(group.category!.name)
+                        }}
+                      >
+                        {group.category.name}
+                      </h2>
+                    )}
+                    <div className="category-actions">
+                      <button
+                        type="button"
+                        onClick={() => moveCategory(group.category!, -1)}
+                        aria-label="Sposta su"
+                      >
+                        <IconChevronUp />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveCategory(group.category!, 1)}
+                        aria-label="Sposta giù"
+                      >
+                        <IconChevronDown />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteCategory(group.category!)}
+                        aria-label="Elimina categoria"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <h2 className="section-label">Senza categoria</h2>
+                )}
+                <ul className="items">
+                  {group.items.map((item) => (
+                    <li key={item.id} className={item.checked ? 'checked' : ''}>
+                      <label className="check-row">
+                        <input
+                          type="checkbox"
+                          checked={item.checked}
+                          onChange={() => toggleChecked(item)}
+                        />
+                        <span className="checkmark" aria-hidden="true" />
+                        <span className="item-name">
+                          {item.name}
+                          {item.quantity ? ` (${item.quantity})` : ''}
+                        </span>
+                      </label>
+                      <span className="added-by">
+                        {item.checked ? `✓ ${item.checkedByName}` : `+ ${item.addedByName}`}
+                      </span>
+                      <button
+                        type="button"
+                        className="icon-btn-ghost"
+                        onClick={() => deleteItem(item)}
+                        aria-label="Elimina articolo"
+                      >
+                        <IconTrash size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ),
+        )}
 
-      {suggestions.length > 0 && (
-        <div className="suggestions">
-          {suggestions.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className="chip"
-              onClick={() => addItemByName(name, newItemCategoryId === UNCATEGORIZED ? null : newItemCategoryId)}
-            >
-              + {name}
+        {suggestions.length > 0 && (
+          <div className="suggestions">
+            {suggestions.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="chip"
+                onClick={() =>
+                  addItemByName(name, newItemCategoryId === UNCATEGORIZED ? null : newItemCategoryId)
+                }
+              >
+                + {name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {showAddCategory ? (
+          <form onSubmit={handleAddCategory} className="add-category-form">
+            <input
+              autoFocus
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Nome categoria"
+              onBlur={() => {
+                if (!newCategoryName.trim()) setShowAddCategory(false)
+              }}
+            />
+            <button type="submit" className="pill-btn">
+              Aggiungi
             </button>
-          ))}
-        </div>
-      )}
+          </form>
+        ) : (
+          <button type="button" className="add-category-toggle" onClick={() => setShowAddCategory(true)}>
+            <IconPlus size={16} /> Nuova categoria
+          </button>
+        )}
+      </div>
 
-      <form onSubmit={handleAddItem} className="add-item">
-        <input
-          value={newItemName}
-          onChange={(e) => setNewItemName(e.target.value)}
-          placeholder="Aggiungi articolo"
-        />
-        <select
-          value={newItemCategoryId}
-          onChange={(e) => setNewItemCategoryId(e.target.value)}
-        >
-          <option value={UNCATEGORIZED}>Senza categoria</option>
+      <form onSubmit={handleAddItem} className="bottom-bar bottom-bar-item">
+        <select value={newItemCategoryId} onChange={(e) => setNewItemCategoryId(e.target.value)}>
+          <option value={UNCATEGORIZED}>Senza cat.</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
         </select>
-        <button type="submit">Aggiungi</button>
-      </form>
-
-      <form onSubmit={handleAddCategory} className="add-category">
         <input
-          value={newCategoryName}
-          onChange={(e) => setNewCategoryName(e.target.value)}
-          placeholder="Nuova categoria"
+          value={newItemName}
+          onChange={(e) => setNewItemName(e.target.value)}
+          placeholder="Aggiungi articolo"
         />
-        <button type="submit">Aggiungi categoria</button>
+        <button type="submit" className="fab" aria-label="Aggiungi articolo">
+          <IconPlus />
+        </button>
       </form>
     </main>
   )
