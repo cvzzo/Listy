@@ -532,6 +532,31 @@ input::placeholder {
   padding: 2px 4px 4px;
 }
 
+.category-actions button.category-add-btn {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.category-actions button.category-add-btn:hover {
+  background: var(--accent-bg);
+}
+
+.add-item-inline {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.add-item-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-item-inline .pill-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+}
+
 .section-label {
   font-size: 13px;
   font-weight: 700;

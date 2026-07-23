@@ -29,6 +29,8 @@ function ListView() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
+  const [addingItemCategoryId, setAddingItemCategoryId] = useState<string | null>(null)
+  const [newItemInCategory, setNewItemInCategory] = useState('')
   const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
 
   const list = useLiveQuery(async () => (listId ? db.lists.get(listId) : undefined), [listId])
@@ -90,6 +92,15 @@ function ListView() {
     if (!name) return
     await addItemByName(name, newItemCategoryId === UNCATEGORIZED ? null : newItemCategoryId)
     setNewItemName('')
+  }
+
+  async function handleAddItemToCategory(e: React.FormEvent, categoryId: string) {
+    e.preventDefault()
+    const name = newItemInCategory.trim()
+    if (!name) return
+    await addItemByName(name, categoryId)
+    setNewItemInCategory('')
+    // resta aperto per aggiungere più prodotti di fila alla stessa categoria
   }
 
   async function handleAddCategory(e: React.FormEvent) {
@@ -289,6 +300,19 @@ function ListView() {
                   <div className="category-actions">
                     <button
                       type="button"
+                      className="category-add-btn"
+                      onClick={() => {
+                        setAddingItemCategoryId((prev) =>
+                          prev === group.category!.id ? null : group.category!.id,
+                        )
+                        setNewItemInCategory('')
+                      }}
+                      aria-label="Aggiungi articolo a questa categoria"
+                    >
+                      <IconPlus size={18} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => moveCategory(group.category!, -1)}
                       aria-label="Sposta su"
                     >
@@ -322,6 +346,25 @@ function ListView() {
                 </div>
               ) : (
                 <h2 className="section-label">Senza categoria</h2>
+              )}
+              {group.category && addingItemCategoryId === group.category.id && (
+                <form
+                  className="add-item-inline"
+                  onSubmit={(e) => handleAddItemToCategory(e, group.category!.id)}
+                >
+                  <input
+                    autoFocus
+                    value={newItemInCategory}
+                    onChange={(e) => setNewItemInCategory(e.target.value)}
+                    placeholder={`Aggiungi a ${group.category.name}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setAddingItemCategoryId(null)
+                    }}
+                  />
+                  <button type="submit" className="pill-btn" aria-label="Aggiungi articolo">
+                    <IconPlus size={16} />
+                  </button>
+                </form>
               )}
               {group.items.length > 0 ? (
                 <ul className="items">
