@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, clearLocalData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { clearSession, getSession } from '../lib/auth/session'
 import {
+  IconBell,
   IconCalendar,
   IconCart,
   IconChevronRight,
@@ -18,6 +19,13 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import SchedulePicker from '../components/SchedulePicker'
 import Toast from '../components/Toast'
 import { formatWhen, isPast } from '../lib/format/when'
+import {
+  disablePush,
+  enablePush,
+  getPushState,
+  isIosWithoutHomeScreen,
+  type PushState,
+} from '../lib/push/push'
 import { useUndoToast } from '../hooks/useUndoToast'
 import type { List } from '../lib/types'
 
@@ -28,6 +36,34 @@ function Lists() {
   const [inviteCopied, setInviteCopied] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [schedulingList, setSchedulingList] = useState<List | null>(null)
+  const [pushState, setPushState] = useState<PushState>('unsupported')
+  const [pushError, setPushError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getPushState().then(setPushState)
+  }, [])
+
+  async function togglePush() {
+    setPushError(null)
+    try {
+      setPushState(pushState === 'on' ? await disablePush() : await enablePush())
+    } catch {
+      // Il caso piu probabile e che le chiavi VAPID non siano configurate sul server
+      setPushError('Non sono riuscito ad attivare le notifiche')
+      setPushState(await getPushState())
+    }
+  }
+
+  function pushMenuLabel() {
+    if (pushState === 'on') return 'Disattiva notifiche'
+    if (pushState === 'blocked') return 'Notifiche bloccate dal browser'
+    if (pushState === 'unsupported') {
+      return isIosWithoutHomeScreen()
+        ? 'Aggiungi a Home per le notifiche'
+        : 'Notifiche non disponibili qui'
+    }
+    return 'Attiva notifiche'
+  }
   const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
 
   const lists = useLiveQuery(async () => {
@@ -153,10 +189,34 @@ function Lists() {
             </button>
           </div>
         </div>
-        <button type="button" className="icon-btn" onClick={() => setConfirmLogout(true)} aria-label="Esci">
-          <IconLogout />
-        </button>
+        <ActionMenu
+          label="Impostazioni"
+          groups={[
+            [
+              {
+                label: pushMenuLabel(),
+                icon: <IconBell size={18} />,
+                disabled: pushState === 'unsupported' || pushState === 'blocked',
+                onSelect: togglePush,
+              },
+            ],
+            [
+              {
+                label: 'Esci dalla famiglia',
+                icon: <IconLogout size={18} />,
+                danger: true,
+                onSelect: () => setConfirmLogout(true),
+              },
+            ],
+          ]}
+        />
       </header>
+
+      {pushError && (
+        <div className="activity-notice" role="status">
+          {pushError}
+        </div>
+      )}
 
       <div className="page-content">
         {lists.length === 0 && (

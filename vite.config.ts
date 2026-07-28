@@ -30,6 +30,9 @@ export default defineConfig({
         icons: [{ src: '/Logo.svg', sizes: 'any', type: 'image/svg+xml' }],
       },
       workbox: {
+        // La gestione di push e notificationclick vive in un file a parte: cosi la
+        // precache e le regole offline restano generate da workbox, non scritte a mano
+        importScripts: ['/push-sw.js'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {

@@ -128,6 +128,48 @@ input::placeholder {
   }
 }
 
+/* ---------- Avvisi dagli altri dispositivi ---------- */
+
+/* In alto e non in basso: il toast di annullamento occupa gia quella zona, e
+   questo non ha nulla da fare, va solo letto */
+.activity-notice {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: 0;
+  right: 0;
+  z-index: 45;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  animation: notice-in 0.22s ease-out;
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-notice {
+    animation: none;
+  }
+}
+
 /* ---------- Toast ---------- */
 
 .toast {

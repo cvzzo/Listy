@@ -15,6 +15,13 @@
       "when": 1785240018547,
       "tag": "0001_productive_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785241519260,
+      "tag": "0002_colossal_the_fallen",
+      "breakpoints": true
     }
   ]
 }

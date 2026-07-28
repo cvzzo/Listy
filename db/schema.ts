@@ -48,6 +48,9 @@ export const lists = pgTable(
     position: integer('position').notNull().default(0),
     // Quando la famiglia ha deciso di andare a fare questa spesa
     shoppingAt: timestamp('shopping_at', { withTimezone: true }),
+    // Per quale shoppingAt e gia partita la notifica: evita di rimandarla a ogni
+    // giro dello scheduler, e la riabilita da sola se la data viene spostata
+    notifiedFor: timestamp('notified_for', { withTimezone: true }),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => members.id),
@@ -85,6 +88,31 @@ export const categories = pgTable(
   (t) => [
     index('categories_family_idx').on(t.familyId),
     index('categories_list_idx').on(t.listId),
+  ],
+)
+
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    // L'endpoint identifica il singolo dispositivo: e la chiave naturale, il
+    // browser ne restituisce uno diverso per ogni installazione
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint),
+    index('push_subscriptions_family_idx').on(t.familyId),
   ],
 )
 

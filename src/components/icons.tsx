@@ -110,6 +110,15 @@ export function IconCheckSquare({ size = 18, className }: IconProps) {
   )
 }
 
+export function IconBell({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M18 8a6 6 0 1 0-12 0c0 6-3 8-3 8h18s-3-2-3-8" />
+      <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+    </svg>
+  )
+}
+
 export function IconCalendar({ size = 18, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>

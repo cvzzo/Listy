@@ -30,7 +30,7 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(lists.id, m.id), eq(lists.familyId, session.familyId)))
       .returning()
-    if (row) await publishMutation(session.familyId, 'list', row)
+    if (row) await publishMutation(session, 'list', row)
     return row ?? null
   }
 
@@ -60,7 +60,7 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
       })
       .returning()
 
-    await publishMutation(session.familyId, 'list', row)
+    await publishMutation(session, 'list', row)
     return row
   }
 
@@ -78,7 +78,7 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
     .set(changes)
     .where(and(eq(lists.id, m.id), eq(lists.familyId, session.familyId)))
     .returning()
-  if (row) await publishMutation(session.familyId, 'list', row)
+  if (row) await publishMutation(session, 'list', row)
   return row ?? null
 }
 
@@ -91,7 +91,7 @@ async function applyCategoryMutation(session: SessionPayload, m: MutationInput) 
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(categories.id, m.id), eq(categories.familyId, session.familyId)))
       .returning()
-    if (row) await publishMutation(session.familyId, 'category', row)
+    if (row) await publishMutation(session, 'category', row)
     return row ?? null
   }
 
@@ -120,7 +120,7 @@ async function applyCategoryMutation(session: SessionPayload, m: MutationInput) 
       })
       .returning()
 
-    await publishMutation(session.familyId, 'category', row)
+    await publishMutation(session, 'category', row)
     return row
   }
 
@@ -134,7 +134,7 @@ async function applyCategoryMutation(session: SessionPayload, m: MutationInput) 
     .set(changes)
     .where(and(eq(categories.id, m.id), eq(categories.familyId, session.familyId)))
     .returning()
-  if (row) await publishMutation(session.familyId, 'category', row)
+  if (row) await publishMutation(session, 'category', row)
   return row ?? null
 }
 
@@ -147,7 +147,7 @@ async function applyItemMutation(session: SessionPayload, m: MutationInput) {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(items.id, m.id), eq(items.familyId, session.familyId)))
       .returning()
-    if (row) await publishMutation(session.familyId, 'item', row)
+    if (row) await publishMutation(session, 'item', row)
     return row ?? null
   }
 
@@ -182,7 +182,7 @@ async function applyItemMutation(session: SessionPayload, m: MutationInput) {
       })
       .returning()
 
-    await publishMutation(session.familyId, 'item', row)
+    await publishMutation(session, 'item', row)
     return row
   }
 
@@ -211,6 +211,6 @@ async function applyItemMutation(session: SessionPayload, m: MutationInput) {
     .set(changes)
     .where(and(eq(items.id, m.id), eq(items.familyId, session.familyId)))
     .returning()
-  if (row) await publishMutation(session.familyId, 'item', row)
+  if (row) await publishMutation(session, 'item', row)
   return row ?? null
 }
