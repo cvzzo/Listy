@@ -2,18 +2,22 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/db'
-import { enqueueAndFlush } from '../lib/sync/engine'
+import { enqueueAndFlush, enqueueManyAndFlush } from '../lib/sync/engine'
 import { getSession } from '../lib/auth/session'
 import { getFrequentItemNames } from '../lib/db/frequentItems'
 import {
   IconArrowLeft,
+  IconCheckSquare,
   IconChevronDown,
   IconChevronUp,
   IconList,
   IconPencil,
   IconPlus,
+  IconSquare,
+  IconTag,
   IconTrash,
 } from '../components/icons'
+import ActionMenu from '../components/ActionMenu'
 import Toast from '../components/Toast'
 import { useUndoToast } from '../hooks/useUndoToast'
 import type { Category, Item } from '../lib/types'
@@ -49,6 +53,8 @@ function ListView() {
     if (!session) return []
     return getFrequentItemNames(session.family.id)
   }, [session?.family.id]) ?? []
+
+  const checkedItems = items.filter((item) => item.checked)
 
   const currentNames = new Set(items.map((i) => i.name.trim().toLowerCase()))
   const suggestions = frequentNames.filter((name) => !currentNames.has(name.trim().toLowerCase()))
@@ -149,28 +155,50 @@ function ListView() {
     setEditingCategoryId(null)
   }
 
-  async function deleteCategory(category: Category) {
+  // Cancellazione soft di uno o più record, con undo: stessa logica per il cestino del
+  // singolo articolo e per le azioni di massa del menu.
+  async function softDelete(
+    entity: 'item' | 'category',
+    targets: { id: string }[],
+    undoMessage: string,
+  ) {
+    if (targets.length === 0) return
+    const table = entity === 'item' ? db.items : db.categories
+    const ids = targets.map((t) => t.id)
     const now = new Date().toISOString()
-    await db.categories.update(category.id, { deletedAt: now, updatedAt: now })
-    await enqueueAndFlush({
-      id: category.id,
-      entity: 'category',
-      op: 'delete',
-      payload: {},
-      clientTimestamp: now,
-    })
 
-    showUndo(`Categoria "${category.name}" eliminata`, async () => {
+    await table.bulkUpdate(ids.map((id) => ({ key: id, changes: { deletedAt: now, updatedAt: now } })))
+    await enqueueManyAndFlush(
+      ids.map((id) => ({ id, entity, op: 'delete' as const, payload: {}, clientTimestamp: now })),
+    )
+
+    showUndo(undoMessage, async () => {
       const restoredAt = new Date().toISOString()
-      await db.categories.update(category.id, { deletedAt: null, updatedAt: restoredAt })
-      await enqueueAndFlush({
-        id: category.id,
-        entity: 'category',
-        op: 'update',
-        payload: { deletedAt: null },
-        clientTimestamp: restoredAt,
-      })
+      await table.bulkUpdate(
+        ids.map((id) => ({ key: id, changes: { deletedAt: null, updatedAt: restoredAt } })),
+      )
+      await enqueueManyAndFlush(
+        ids.map((id) => ({
+          id,
+          entity,
+          op: 'update' as const,
+          payload: { deletedAt: null },
+          clientTimestamp: restoredAt,
+        })),
+      )
     })
+  }
+
+  async function deleteCategory(category: Category) {
+    await softDelete('category', [category], `Categoria "${category.name}" eliminata`)
+  }
+
+  async function deleteAllCategories() {
+    await softDelete(
+      'category',
+      categories,
+      categories.length === 1 ? 'Categoria eliminata' : `${categories.length} categorie eliminate`,
+    )
   }
 
   async function moveCategory(category: Category, direction: -1 | 1) {
@@ -219,21 +247,88 @@ function ListView() {
   }
 
   async function deleteItem(item: Item) {
-    const now = new Date().toISOString()
-    await db.items.update(item.id, { deletedAt: now, updatedAt: now })
-    await enqueueAndFlush({ id: item.id, entity: 'item', op: 'delete', payload: {}, clientTimestamp: now })
+    await softDelete('item', [item], `"${item.name}" eliminato`)
+  }
 
-    showUndo(`"${item.name}" eliminato`, async () => {
-      const restoredAt = new Date().toISOString()
-      await db.items.update(item.id, { deletedAt: null, updatedAt: restoredAt })
-      await enqueueAndFlush({
-        id: item.id,
-        entity: 'item',
-        op: 'update',
-        payload: { deletedAt: null },
-        clientTimestamp: restoredAt,
-      })
-    })
+  async function deleteCheckedItems() {
+    await softDelete(
+      'item',
+      checkedItems,
+      checkedItems.length === 1
+        ? 'Articolo spuntato eliminato'
+        : `${checkedItems.length} articoli spuntati eliminati`,
+    )
+  }
+
+  async function clearList() {
+    await softDelete(
+      'item',
+      items,
+      items.length === 1 ? 'Articolo eliminato' : `${items.length} articoli eliminati`,
+    )
+  }
+
+  async function uncheckAllItems() {
+    if (checkedItems.length === 0) return
+    const snapshot = checkedItems.map((i) => ({
+      id: i.id,
+      checkedBy: i.checkedBy,
+      checkedByName: i.checkedByName,
+      checkedAt: i.checkedAt,
+    }))
+    const now = new Date().toISOString()
+
+    await db.items.bulkUpdate(
+      snapshot.map((s) => ({
+        key: s.id,
+        changes: {
+          checked: false,
+          checkedBy: null,
+          checkedByName: null,
+          checkedAt: null,
+          updatedAt: now,
+        },
+      })),
+    )
+    await enqueueManyAndFlush(
+      snapshot.map((s) => ({
+        id: s.id,
+        entity: 'item' as const,
+        op: 'update' as const,
+        payload: { checked: false },
+        clientTimestamp: now,
+      })),
+    )
+
+    showUndo(
+      snapshot.length === 1 ? 'Spunta rimossa' : `${snapshot.length} spunte rimosse`,
+      async () => {
+        const restoredAt = new Date().toISOString()
+        // In locale rimettiamo l'autore originale della spunta; il server invece
+        // riattribuisce a chi annulla, quindi dopo il sync il nome può cambiare.
+        await db.items.bulkUpdate(
+          snapshot.map((s) => ({
+            key: s.id,
+            changes: {
+              checked: true,
+              checkedBy: s.checkedBy,
+              checkedByName: s.checkedByName,
+              checkedAt: s.checkedAt,
+              updatedAt: restoredAt,
+            },
+          })),
+        )
+        await enqueueManyAndFlush(
+          snapshot.map((s) => ({
+            id: s.id,
+            entity: 'item' as const,
+            op: 'update' as const,
+            payload: { checked: true },
+            clientTimestamp: restoredAt,
+          })),
+        )
+      },
+    )
   }
 
   const categoryIds = new Set(categories.map((c) => c.id))
@@ -263,6 +358,42 @@ function ListView() {
           <IconArrowLeft />
         </Link>
         <h1 className="list-title">{list?.name}</h1>
+        <ActionMenu
+          label="Azioni lista"
+          groups={[
+            [
+              {
+                label: 'Togli tutte le spunte',
+                icon: <IconSquare />,
+                disabled: checkedItems.length === 0,
+                onSelect: uncheckAllItems,
+              },
+              {
+                label: 'Elimina articoli spuntati',
+                icon: <IconCheckSquare />,
+                disabled: checkedItems.length === 0,
+                danger: true,
+                onSelect: deleteCheckedItems,
+              },
+              {
+                label: 'Svuota la lista',
+                icon: <IconTrash />,
+                disabled: items.length === 0,
+                danger: true,
+                onSelect: clearList,
+              },
+            ],
+            [
+              {
+                label: 'Elimina tutte le categorie',
+                icon: <IconTag />,
+                disabled: categories.length === 0,
+                danger: true,
+                onSelect: deleteAllCategories,
+              },
+            ],
+          ]}
+        />
       </header>
 
       <div className="page-content">

@@ -282,6 +282,8 @@ input::placeholder {
 }
 
 .list-title {
+  flex: 1;
+  min-width: 0;
   font-size: 18px;
 }
 
@@ -342,6 +344,87 @@ input::placeholder {
 .icon-btn-ghost:hover {
   background: var(--surface-2);
   color: var(--danger);
+}
+
+/* ---------- Menu azioni ---------- */
+
+.menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 236px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  animation: menu-in 120ms ease-out;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 14.5px;
+  text-align: left;
+}
+
+.menu-item svg {
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+.menu-item.danger,
+.menu-item.danger svg {
+  color: var(--danger);
+}
+
+.menu-item:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.menu-item:disabled {
+  opacity: 0.4;
+}
+
+.menu-item:disabled,
+.menu-item:disabled svg {
+  color: var(--text);
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 6px 10px;
+  background: var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel {
+    animation: none;
+  }
 }
 
 /* ---------- Page content + bottom bar ---------- */

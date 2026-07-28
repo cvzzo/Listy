@@ -83,6 +83,42 @@ export function IconLogout({ size = 18, className }: IconProps) {
   )
 }
 
+export function IconMore({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconSquare({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <rect x="4" y="4" width="16" height="16" rx="4.5" />
+    </svg>
+  )
+}
+
+export function IconCheckSquare({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <rect x="4" y="4" width="16" height="16" rx="4.5" />
+      <path d="M8.4 12.2l2.5 2.5 4.7-5.2" />
+    </svg>
+  )
+}
+
+export function IconTag({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7" cy="7" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 export function IconList({ size = 40, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
