@@ -46,6 +46,15 @@ export type PushPayload = {
   title: string
   body: string
   url: string
+  /**
+   * Notifiche con lo stesso tag si sostituiscono a vicenda. I tre avvisi di una
+   * spesa sono eventi distinti e devono avere tag diversi, altrimenti il secondo
+   * cancella il primo e Android tende a trattarlo come un aggiornamento silenzioso
+   * invece che come una notizia nuova.
+   */
+  tag?: string
+  /** Resta a schermo finche non la si tocca: si usa per l'avviso dell'ultimo momento */
+  keepOpen?: boolean
 }
 
 /**
@@ -86,6 +95,14 @@ export async function sendToFamily(
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           body,
+          {
+            // Senza urgency alta il servizio push puo accodare la consegna quando il
+            // telefono e in risparmio energetico, ed e proprio allora che serve
+            urgency: 'high',
+            // Scaduto questo tempo la notizia non serve piu: meglio perderla che
+            // vedersela arrivare il giorno dopo
+            TTL: 6 * 60 * 60,
+          },
         )
         sent += 1
       } catch (err) {

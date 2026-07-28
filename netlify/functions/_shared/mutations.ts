@@ -117,6 +117,7 @@ async function announceShoppingDate(
         title: `${session.displayName} ha fissato la spesa`,
         body: `${listName} — ${formatWhen(shoppingAt)}`,
         url: `/liste/${listId}`,
+        tag: `lista-${listId}-fissata`,
       },
       session.memberId,
     )

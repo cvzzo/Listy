@@ -63,6 +63,7 @@ export default async () => {
       title: 'Domani si fa la spesa',
       body: `${list.name} — ${formatWhen(list.shoppingAt!)}`,
       url: `/liste/${list.id}`,
+      tag: `lista-${list.id}-domani`,
     })
     sent += result.sent
   }
@@ -74,6 +75,9 @@ export default async () => {
       title: 'E ora di fare la spesa',
       body: list.name,
       url: `/liste/${list.id}`,
+      tag: `lista-${list.id}-ora`,
+      // Questa e la sola che conviene resti a schermo: e il momento in cui serve
+      keepOpen: true,
     })
     sent += result.sent
   }

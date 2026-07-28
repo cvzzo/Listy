@@ -17,9 +17,15 @@ self.addEventListener('push', (event) => {
     body: payload.body || '',
     icon: '/Logo.svg',
     badge: '/Logo.svg',
-    // Notifiche successive sulla stessa lista si sostituiscono invece di accumularsi
-    tag: payload.url || 'listy',
+    // Il tag arriva dal server ed e diverso per ogni tipo di avviso: senza,
+    // il promemoria del giorno prima sostituirebbe quello di conferma
+    tag: payload.tag || payload.url || 'listy',
     renotify: true,
+    // Una notifica senza vibrazione su Android finisce muta nel pannello, senza
+    // comparire in evidenza: e la differenza fra accorgersene e trovarla dopo
+    vibrate: [200, 100, 200],
+    silent: false,
+    requireInteraction: payload.keepOpen === true,
     data: { url: payload.url || '/' },
   }
 
