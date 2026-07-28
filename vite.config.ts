@@ -4,6 +4,15 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    // In ascolto su tutte le interfacce, non solo localhost: serve per aprire
+    // l'app dal telefono sulla stessa rete di casa
+    host: true,
+    port: 5173,
+    // Meglio un errore subito che scivolare sulla 5174: un secondo Vite avviato
+    // per sbaglio serve il frontend senza le funzioni, e ogni /api/* torna 404
+    strictPort: true,
+  },
   plugins: [
     react(),
     VitePWA({
