@@ -1,0 +1,1 @@
+ALTER TABLE "lists" ADD COLUMN "shopping_at" timestamp with time zone;

@@ -4,9 +4,20 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, clearLocalData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { clearSession, getSession } from '../lib/auth/session'
-import { IconCart, IconChevronRight, IconLogout, IconPlus, IconShare, IconTrash } from '../components/icons'
+import {
+  IconCalendar,
+  IconCart,
+  IconChevronRight,
+  IconLogout,
+  IconPlus,
+  IconShare,
+  IconTrash,
+} from '../components/icons'
+import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
+import SchedulePicker from '../components/SchedulePicker'
 import Toast from '../components/Toast'
+import { formatWhen, isPast } from '../lib/format/when'
 import { useUndoToast } from '../hooks/useUndoToast'
 import type { List } from '../lib/types'
 
@@ -16,6 +27,7 @@ function Lists() {
   const [newListName, setNewListName] = useState('')
   const [inviteCopied, setInviteCopied] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [schedulingList, setSchedulingList] = useState<List | null>(null)
   const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
 
   const lists = useLiveQuery(async () => {
@@ -90,6 +102,19 @@ function Lists() {
     })
   }
 
+  async function setShoppingAt(list: List, shoppingAt: string | null) {
+    setSchedulingList(null)
+    const now = new Date().toISOString()
+    await db.lists.update(list.id, { shoppingAt, updatedAt: now })
+    await enqueueAndFlush({
+      id: list.id,
+      entity: 'list',
+      op: 'update',
+      payload: { shoppingAt },
+      clientTimestamp: now,
+    })
+  }
+
   async function handleLogout() {
     setConfirmLogout(false)
     await clearLocalData()
@@ -149,7 +174,15 @@ function Lists() {
             return (
             <li key={list.id} className="list-card">
               <Link to={`/liste/${list.id}`} className="list-card-link">
-                <span className="list-card-name">{list.name}</span>
+                <span className="list-card-text">
+                  <span className="list-card-name">{list.name}</span>
+                  {list.shoppingAt && (
+                    <span className={isPast(list.shoppingAt) ? 'when past' : 'when'}>
+                      <IconCalendar size={13} />
+                      {formatWhen(list.shoppingAt)}
+                    </span>
+                  )}
+                </span>
                 {/* Quanti articoli restano da prendere, come nelle intestazioni di
                     reparto. Su una lista senza articoli il badge non compare. */}
                 {count && count.total > 0 && (
@@ -159,14 +192,28 @@ function Lists() {
                 )}
                 <IconChevronRight className="chevron" />
               </Link>
-              <button
-                type="button"
-                className="icon-btn-ghost danger"
-                onClick={() => deleteList(list)}
-                aria-label="Elimina lista"
-              >
-                <IconTrash size={16} />
-              </button>
+              <ActionMenu
+                label={`Azioni per ${list.name}`}
+                triggerClassName="icon-btn-ghost"
+                placement="auto"
+                groups={[
+                  [
+                    {
+                      label: list.shoppingAt ? 'Cambia quando andare' : 'Quando andare',
+                      icon: <IconCalendar size={18} />,
+                      onSelect: () => setSchedulingList(list),
+                    },
+                  ],
+                  [
+                    {
+                      label: 'Elimina lista',
+                      icon: <IconTrash size={18} />,
+                      danger: true,
+                      onSelect: () => deleteList(list),
+                    },
+                  ],
+                ]}
+              />
             </li>
             )
           })}
@@ -197,6 +244,14 @@ function Lists() {
           <IconPlus />
         </button>
       </form>
+
+      <SchedulePicker
+        open={schedulingList !== null}
+        listName={schedulingList?.name ?? ''}
+        value={schedulingList?.shoppingAt}
+        onSave={(iso) => schedulingList && setShoppingAt(schedulingList, iso)}
+        onCancel={() => setSchedulingList(null)}
+      />
 
       <ConfirmDialog
         open={confirmLogout}

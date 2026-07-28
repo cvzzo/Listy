@@ -15,6 +15,8 @@ export type List = {
   familyId: string
   name: string
   position: number
+  /** Quando andare a fare la spesa. Le righe create prima di questo campo non ce l'hanno. */
+  shoppingAt?: string | null
   createdBy: string
   createdAt: string
   updatedAt: string

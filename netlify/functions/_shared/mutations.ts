@@ -68,6 +68,10 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
   if (typeof m.payload.name === 'string') changes.name = m.payload.name
   if (typeof m.payload.position === 'number') changes.position = m.payload.position
   if (m.payload.deletedAt === null) changes.deletedAt = null
+  // La chiave presente con valore nullo significa "togli la data", non "non toccarla"
+  if ('shoppingAt' in m.payload) {
+    changes.shoppingAt = m.payload.shoppingAt ? new Date(String(m.payload.shoppingAt)) : null
+  }
 
   const [row] = await db
     .update(lists)

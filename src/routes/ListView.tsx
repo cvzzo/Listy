@@ -12,6 +12,7 @@ import {
 } from '../lib/history/changes'
 import {
   IconArrowLeft,
+  IconCalendar,
   IconCheckSquare,
   IconChevronDown,
   IconChevronUp,
@@ -26,7 +27,9 @@ import {
   IconUndo,
 } from '../components/icons'
 import ActionMenu from '../components/ActionMenu'
+import SchedulePicker from '../components/SchedulePicker'
 import Toast from '../components/Toast'
+import { formatWhen, isPast } from '../lib/format/when'
 import { useActionHistory } from '../hooks/useActionHistory'
 import { useCollapsedCategories } from '../hooks/useCollapsedCategories'
 import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
@@ -46,6 +49,7 @@ function ListView() {
   const [editingItemName, setEditingItemName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
+  const [scheduling, setScheduling] = useState(false)
   const [addingItemCategoryId, setAddingItemCategoryId] = useState<string | null>(null)
   const [newItemInCategory, setNewItemInCategory] = useState('')
   const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
@@ -143,6 +147,27 @@ function ListView() {
     local: Record<string, unknown>,
     payload: Record<string, unknown>,
   ): Change => ({ kind: 'update', entity, id, op: 'update', local, payload })
+
+  async function setShoppingAt(shoppingAt: string | null) {
+    setScheduling(false)
+    if (!list) return
+
+    const was = list.shoppingAt ?? null
+    const at = (value: string | null): Change => ({
+      kind: 'update',
+      entity: 'list',
+      id: list.id,
+      op: 'update',
+      local: { shoppingAt: value },
+      payload: { shoppingAt: value },
+    })
+
+    await perform(
+      shoppingAt ? `Spesa fissata per ${formatWhen(shoppingAt)}` : 'Tolta la data della spesa',
+      [at(shoppingAt)],
+      [at(was)],
+    )
+  }
 
   async function addItemByName(name: string, categoryId: string | null) {
     if (!name || !listId || !session) return
@@ -391,7 +416,15 @@ function ListView() {
         <Link to="/liste" className="icon-btn" aria-label="Tutte le liste">
           <IconArrowLeft />
         </Link>
-        <h1 className="list-title">{list?.name}</h1>
+        <div className="list-title">
+          <h1>{list?.name}</h1>
+          {list?.shoppingAt && (
+            <span className={isPast(list.shoppingAt) ? 'when past' : 'when'}>
+              <IconCalendar size={13} />
+              {formatWhen(list.shoppingAt)}
+            </span>
+          )}
+        </div>
         <ActionMenu
           label="Azioni lista"
           groups={[
@@ -407,6 +440,13 @@ function ListView() {
                 icon: <IconRedo size={18} />,
                 disabled: !redoLabel,
                 onSelect: redo,
+              },
+            ],
+            [
+              {
+                label: list?.shoppingAt ? 'Cambia quando andare' : 'Quando andare',
+                icon: <IconCalendar size={18} />,
+                onSelect: () => setScheduling(true),
               },
             ],
             [
@@ -721,6 +761,14 @@ function ListView() {
           </button>
         )}
       </div>
+
+      <SchedulePicker
+        open={scheduling}
+        listName={list?.name ?? ''}
+        value={list?.shoppingAt}
+        onSave={setShoppingAt}
+        onCancel={() => setScheduling(false)}
+      />
 
       {pending && (
         <Toast

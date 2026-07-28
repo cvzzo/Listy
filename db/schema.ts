@@ -46,6 +46,8 @@ export const lists = pgTable(
       .references(() => families.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull().default(0),
+    // Quando la famiglia ha deciso di andare a fare questa spesa
+    shoppingAt: timestamp('shopping_at', { withTimezone: true }),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => members.id),

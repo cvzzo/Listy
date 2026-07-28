@@ -69,6 +69,20 @@ input::placeholder {
   margin-bottom: 22px;
 }
 
+.schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.schedule-field input {
+  width: 100%;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -313,7 +327,35 @@ input::placeholder {
 .list-title {
   flex: 1;
   min-width: 0;
+}
+
+.list-title h1 {
   font-size: 19px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quando si va a fare la spesa: sotto il nome, sia in home sia nella lista */
+.when {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.when svg {
+  flex-shrink: 0;
+}
+
+/* Ora passata: resta leggibile ma smette di richiamare l'attenzione */
+.when.past {
+  color: var(--text);
+  opacity: 0.75;
+  font-weight: 500;
 }
 
 .invite-row {
@@ -757,9 +799,14 @@ input::placeholder {
   border-color: var(--accent);
 }
 
-.list-card-name {
+.list-card-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-card-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

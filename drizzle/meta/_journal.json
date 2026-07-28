@@ -8,6 +8,13 @@
       "when": 1784799224692,
       "tag": "0000_marvelous_nehzno",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785240018547,
+      "tag": "0001_productive_mandroid",
+      "breakpoints": true
     }
   ]
 }
