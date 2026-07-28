@@ -3,6 +3,7 @@ import { getDb } from '../../../db/client'
 import { categories, items, lists } from '../../../db/schema'
 import type { SessionPayload } from './auth'
 import { publishMutation } from './ably'
+import { formatWhen, sendToFamily } from './push'
 import { HttpError } from './response'
 
 export type MutationEntity = 'list' | 'category' | 'item'
@@ -68,18 +69,61 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
   if (typeof m.payload.name === 'string') changes.name = m.payload.name
   if (typeof m.payload.position === 'number') changes.position = m.payload.position
   if (m.payload.deletedAt === null) changes.deletedAt = null
+
   // La chiave presente con valore nullo significa "togli la data", non "non toccarla"
-  if ('shoppingAt' in m.payload) {
+  const changingDate = 'shoppingAt' in m.payload
+  if (changingDate) {
     changes.shoppingAt = m.payload.shoppingAt ? new Date(String(m.payload.shoppingAt)) : null
   }
+
+  // Serve il valore precedente per capire se la data e cambiata davvero: salvare
+  // due volte lo stesso orario non deve annunciare niente a nessuno
+  const previous = changingDate
+    ? (
+        await db
+          .select({ shoppingAt: lists.shoppingAt })
+          .from(lists)
+          .where(and(eq(lists.id, m.id), eq(lists.familyId, session.familyId)))
+      )[0]
+    : undefined
 
   const [row] = await db
     .update(lists)
     .set(changes)
     .where(and(eq(lists.id, m.id), eq(lists.familyId, session.familyId)))
     .returning()
-  if (row) await publishMutation(session, 'list', row)
-  return row ?? null
+  if (!row) return null
+
+  await publishMutation(session, 'list', row)
+
+  if (changingDate && row.shoppingAt && +row.shoppingAt !== +(previous?.shoppingAt ?? 0)) {
+    await announceShoppingDate(session, row.id, row.name, row.shoppingAt)
+  }
+
+  return row
+}
+
+/** Avvisa la famiglia che qualcuno ha fissato la spesa. Chi l'ha fissata lo sa gia. */
+async function announceShoppingDate(
+  session: SessionPayload,
+  listId: string,
+  listName: string,
+  shoppingAt: Date,
+) {
+  try {
+    await sendToFamily(
+      session.familyId,
+      {
+        title: `${session.displayName} ha fissato la spesa`,
+        body: `${listName} — ${formatWhen(shoppingAt)}`,
+        url: `/liste/${listId}`,
+      },
+      session.memberId,
+    )
+  } catch (err) {
+    // Le notifiche sono un di piu: se non partono, la data resta comunque salvata
+    console.error('push "spesa fissata" fallito', err)
+  }
 }
 
 async function applyCategoryMutation(session: SessionPayload, m: MutationInput) {

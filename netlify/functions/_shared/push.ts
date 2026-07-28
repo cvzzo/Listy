@@ -1,7 +1,30 @@
 import webpush from 'web-push'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import { getDb } from '../../../db/client'
 import { pushSubscriptions } from '../../../db/schema'
+
+/**
+ * Il server gira in UTC ma la famiglia no: senza fuso esplicito una spesa delle
+ * 10:30 verrebbe annunciata come le 08:30. Finche l'app e per una famiglia
+ * italiana questa e la scelta piu semplice che dia l'ora giusta.
+ */
+const FAMILY_TIME_ZONE = 'Europe/Rome'
+
+const dayFormat = new Intl.DateTimeFormat('it-IT', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  timeZone: FAMILY_TIME_ZONE,
+})
+const timeFormat = new Intl.DateTimeFormat('it-IT', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: FAMILY_TIME_ZONE,
+})
+
+export function formatWhen(date: Date): string {
+  return `${dayFormat.format(date)} alle ${timeFormat.format(date)}`
+}
 
 let configured = false
 
@@ -30,14 +53,26 @@ export type PushPayload = {
  * che il servizio push dichiara morti: una sottoscrizione scaduta o revocata
  * risponde 404 o 410, e riprovarci a ogni giro e solo tempo perso.
  */
-export async function sendToFamily(familyId: string, payload: PushPayload) {
+export async function sendToFamily(
+  familyId: string,
+  payload: PushPayload,
+  // Chi ha appena fatto l'azione non va avvisato di cio che ha fatto lui
+  exceptMemberId?: string,
+) {
   configure()
   const db = getDb()
 
   const subscriptions = await db
     .select()
     .from(pushSubscriptions)
-    .where(eq(pushSubscriptions.familyId, familyId))
+    .where(
+      exceptMemberId
+        ? and(
+            eq(pushSubscriptions.familyId, familyId),
+            ne(pushSubscriptions.memberId, exceptMemberId),
+          )
+        : eq(pushSubscriptions.familyId, familyId),
+    )
 
   if (subscriptions.length === 0) return { sent: 0, removed: 0 }
 

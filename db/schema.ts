@@ -48,8 +48,14 @@ export const lists = pgTable(
     position: integer('position').notNull().default(0),
     // Quando la famiglia ha deciso di andare a fare questa spesa
     shoppingAt: timestamp('shopping_at', { withTimezone: true }),
-    // Per quale shoppingAt e gia partita la notifica: evita di rimandarla a ogni
-    // giro dello scheduler, e la riabilita da sola se la data viene spostata
+    /**
+     * Per quale shoppingAt e gia partito ciascun avviso programmato. Tenere il
+     * valore invece di un semplice "gia fatto" fa si che spostare la data riarmi
+     * gli avvisi da sola, senza codice di reset.
+     */
+    notifiedDayBeforeFor: timestamp('notified_day_before_for', { withTimezone: true }),
+    notifiedDueFor: timestamp('notified_due_for', { withTimezone: true }),
+    /** @deprecated sostituita dalle due sopra, da rimuovere con una migrazione a parte */
     notifiedFor: timestamp('notified_for', { withTimezone: true }),
     createdBy: uuid('created_by')
       .notNull()

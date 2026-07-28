@@ -2,17 +2,40 @@ import type { Config } from '@netlify/functions'
 import { and, eq, gte, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '../../db/client'
 import { lists } from '../../db/schema'
-import { sendToFamily } from './_shared/push'
+import { formatWhen, sendToFamily } from './_shared/push'
 
-// Quanto indietro guardare. Senza questo limite, la prima esecuzione dopo il
-// rilascio annuncerebbe tutte le spese gia passate della storia della famiglia.
-const LOOKBACK_MS = 60 * 60 * 1000
+
+/**
+ * Ogni avviso ha un istante in cui scatta, e si manda solo se quell'istante e
+ * appena passato. Senza questa finestra, il primo giro dopo un rilascio
+ * annuncerebbe tutte le spese vecchie, e una data fissata all'ultimo momento
+ * farebbe partire il promemoria del giorno prima subito dopo quello di conferma.
+ */
+const WINDOW_MS = 60 * 60 * 1000
 
 export default async () => {
   const db = getDb()
   const now = new Date()
-  const from = new Date(now.getTime() - LOOKBACK_MS)
+  const windowStart = new Date(now.getTime() - WINDOW_MS)
 
+  // Il giorno prima: scatta 24 ore prima della spesa
+  const dayBefore = await db
+    .select()
+    .from(lists)
+    .where(
+      and(
+        isNull(lists.deletedAt),
+        isNotNull(lists.shoppingAt),
+        gte(sql`${lists.shoppingAt} - interval '24 hours'`, windowStart),
+        lte(sql`${lists.shoppingAt} - interval '24 hours'`, now),
+        or(
+          isNull(lists.notifiedDayBeforeFor),
+          ne(lists.notifiedDayBeforeFor, sql`${lists.shoppingAt}`),
+        ),
+      ),
+    )
+
+  // All'ora della spesa
   const due = await db
     .select()
     .from(lists)
@@ -20,32 +43,44 @@ export default async () => {
       and(
         isNull(lists.deletedAt),
         isNotNull(lists.shoppingAt),
-        gte(lists.shoppingAt, from),
+        gte(lists.shoppingAt, windowStart),
         lte(lists.shoppingAt, now),
-        // Mai notificata, oppure notificata per un orario diverso da quello
-        // attuale: spostare la spesa deve far ripartire l'avviso
-        or(isNull(lists.notifiedFor), ne(lists.notifiedFor, sql`${lists.shoppingAt}`)),
+        or(isNull(lists.notifiedDueFor), ne(lists.notifiedDueFor, sql`${lists.shoppingAt}`)),
       ),
     )
 
-  let notified = 0
-  for (const list of due) {
+  let sent = 0
+
+  for (const list of dayBefore) {
     // Marcata prima dell'invio: se il push fallisce a meta preferiamo perdere
     // l'avviso piuttosto che rimandarlo a ripetizione ogni cinque minuti
     await db
       .update(lists)
-      .set({ notifiedFor: list.shoppingAt })
+      .set({ notifiedDayBeforeFor: list.shoppingAt })
       .where(eq(lists.id, list.id))
+
+    const result = await sendToFamily(list.familyId, {
+      title: 'Domani si fa la spesa',
+      body: `${list.name} — ${formatWhen(list.shoppingAt!)}`,
+      url: `/liste/${list.id}`,
+    })
+    sent += result.sent
+  }
+
+  for (const list of due) {
+    await db.update(lists).set({ notifiedDueFor: list.shoppingAt }).where(eq(lists.id, list.id))
 
     const result = await sendToFamily(list.familyId, {
       title: 'E ora di fare la spesa',
       body: list.name,
       url: `/liste/${list.id}`,
     })
-    notified += result.sent
+    sent += result.sent
   }
 
-  console.log(`notify-shopping: ${due.length} liste in scadenza, ${notified} notifiche inviate`)
+  console.log(
+    `notify-shopping: ${dayBefore.length} il giorno prima, ${due.length} in scadenza, ${sent} notifiche inviate`,
+  )
   return new Response(null, { status: 204 })
 }
 
@@ -53,3 +88,4 @@ export const config: Config = {
   // Ogni cinque minuti: l'avviso puo arrivare con quel ritardo, per la spesa va bene
   schedule: '*/5 * * * *',
 }
+
