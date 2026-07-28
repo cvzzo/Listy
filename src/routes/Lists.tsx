@@ -27,6 +27,27 @@ function Lists() {
       .sortBy('position')
   }, [session?.family.id]) ?? []
 
+  // Una passata sola su tutti gli articoli della famiglia invece di una query per
+  // lista: le liste sono poche ma le interrogazioni Dexie non sono gratis
+  const counts = useLiveQuery(async () => {
+    const empty = new Map<string, { remaining: number; total: number }>()
+    if (!session) return empty
+
+    const familyItems = await db.items
+      .where('familyId')
+      .equals(session.family.id)
+      .and((i) => !i.deletedAt)
+      .toArray()
+
+    for (const item of familyItems) {
+      const entry = empty.get(item.listId) ?? { remaining: 0, total: 0 }
+      entry.total += 1
+      if (!item.checked) entry.remaining += 1
+      empty.set(item.listId, entry)
+    }
+    return empty
+  }, [session?.family.id])
+
   async function handleCreateList(e: React.FormEvent) {
     e.preventDefault()
     const name = newListName.trim()
@@ -122,10 +143,20 @@ function Lists() {
         )}
 
         <ul className="list-cards">
-          {lists.map((list) => (
+          {lists.map((list) => {
+            const count = counts?.get(list.id)
+
+            return (
             <li key={list.id} className="list-card">
               <Link to={`/liste/${list.id}`} className="list-card-link">
                 <span className="list-card-name">{list.name}</span>
+                {/* Quanti articoli restano da prendere, come nelle intestazioni di
+                    reparto. Su una lista senza articoli il badge non compare. */}
+                {count && count.total > 0 && (
+                  <span className={count.remaining === 0 ? 'count-badge done' : 'count-badge'}>
+                    {count.remaining}
+                  </span>
+                )}
                 <IconChevronRight className="chevron" />
               </Link>
               <button
@@ -137,7 +168,8 @@ function Lists() {
                 <IconTrash size={16} />
               </button>
             </li>
-          ))}
+            )
+          })}
         </ul>
       </div>
 

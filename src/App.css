@@ -758,9 +758,15 @@ input::placeholder {
 }
 
 .list-card-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-card-link .count-badge {
+  margin-right: 10px;
 }
 
 .chevron {
@@ -836,7 +842,7 @@ input::placeholder {
 }
 
 /* Quanti articoli restano da prendere in questo reparto */
-.category-count {
+.count-badge {
   flex-shrink: 0;
   min-width: 22px;
   padding: 1px 8px;
@@ -848,14 +854,14 @@ input::placeholder {
   text-align: center;
 }
 
-.category-toggle.muted .category-count {
+.category-toggle.muted .count-badge {
   background: var(--surface-2);
   color: var(--text);
 }
 
 /* Reparto finito: l'ambra e la stessa di cio che e gia stato preso */
-.category-count.done,
-.category-toggle.muted .category-count.done {
+.count-badge.done,
+.category-toggle.muted .count-badge.done {
   background: var(--checked-bg);
   color: var(--checked);
 }

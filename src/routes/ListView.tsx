@@ -485,7 +485,7 @@ function ListView() {
               {/* Il conteggio di cio che manca resta visibile anche a reparto aperto;
                   sparisce solo dove non c'e proprio niente, che gia lo dice da se */}
               {group.items.length > 0 && (
-                <span className={remaining === 0 ? 'category-count done' : 'category-count'}>
+                <span className={remaining === 0 ? 'count-badge done' : 'count-badge'}>
                   {remaining}
                 </span>
               )}
