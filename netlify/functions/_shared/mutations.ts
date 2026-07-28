@@ -52,7 +52,12 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
         createdBy: session.memberId,
         position: (maxPosition ?? 0) + 1000,
       })
-      .onConflictDoUpdate({ target: lists.id, set: { name } })
+      // Rigiocare una create deve riportare in vita la riga e muovere updatedAt,
+      // altrimenti un "rifai" dopo un "annulla" non si propaga agli altri dispositivi
+      .onConflictDoUpdate({
+        target: lists.id,
+        set: { name, deletedAt: null, updatedAt: new Date() },
+      })
       .returning()
 
     await publishMutation(session.familyId, 'list', row)
@@ -105,7 +110,10 @@ async function applyCategoryMutation(session: SessionPayload, m: MutationInput) 
         name,
         position: (maxPosition ?? 0) + 1000,
       })
-      .onConflictDoUpdate({ target: categories.id, set: { name } })
+      .onConflictDoUpdate({
+        target: categories.id,
+        set: { name, deletedAt: null, updatedAt: new Date() },
+      })
       .returning()
 
     await publishMutation(session.familyId, 'category', row)
@@ -164,7 +172,10 @@ async function applyItemMutation(session: SessionPayload, m: MutationInput) {
         addedByName: session.displayName,
         position: (maxPosition ?? 0) + 1000,
       })
-      .onConflictDoUpdate({ target: items.id, set: { name, categoryId, quantity } })
+      .onConflictDoUpdate({
+        target: items.id,
+        set: { name, categoryId, quantity, deletedAt: null, updatedAt: new Date() },
+      })
       .returning()
 
     await publishMutation(session.familyId, 'item', row)
