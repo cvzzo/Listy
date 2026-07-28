@@ -60,9 +60,14 @@ export async function flushQueue() {
       }),
     })
 
-    for (const result of res.results) {
-      const queued = pending.find((m) => m.id === result.id && m.entity === result.entity)
+    // La correlazione è posizionale: sync-push produce un result per ogni mutazione
+    // ricevuta, nello stesso ordine. Cercare per (id, entity) non basta, perché un
+    // batch può contenere più mutazioni sullo stesso record (es. svuota lista + annulla)
+    // e la prima verrebbe rimossa due volte lasciando le altre bloccate in "sending".
+    for (const [index, result] of res.results.entries()) {
+      const queued = pending[index]
       if (queued?.localId === undefined) continue
+      if (queued.id !== result.id || queued.entity !== result.entity) continue
 
       if (result.status === 'ok' && result.row) {
         // reconcileIntoDexie (non un put diretto) evita che la risposta di un flush precedente
@@ -107,7 +112,18 @@ export function startSyncEngine() {
   tick()
 }
 
-export async function enqueueAndFlush(mutation: Omit<QueuedMutation, 'localId' | 'status' | 'attempts'>) {
-  await db.mutationQueue.add({ ...mutation, status: 'pending', attempts: 0 })
+type NewMutation = Omit<QueuedMutation, 'localId' | 'status' | 'attempts'>
+
+export async function enqueueAndFlush(mutation: NewMutation) {
+  await enqueueManyAndFlush([mutation])
+}
+
+// Le azioni di massa producono una mutazione per articolo: accodarle insieme evita
+// sia una scrittura Dexie per volta sia un flush per volta.
+export async function enqueueManyAndFlush(mutations: NewMutation[]) {
+  if (mutations.length === 0) return
+  await db.mutationQueue.bulkAdd(
+    mutations.map((m) => ({ ...m, status: 'pending' as const, attempts: 0 })),
+  )
   if (navigator.onLine) flushQueue().catch(() => {})
 }
