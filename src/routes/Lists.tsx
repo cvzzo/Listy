@@ -57,6 +57,7 @@ function Lists() {
   function pushMenuLabel() {
     if (pushState === 'on') return 'Disattiva notifiche'
     if (pushState === 'blocked') return 'Notifiche bloccate dal browser'
+    if (pushState === 'unavailable') return 'Notifiche non ancora pronte'
     if (pushState === 'unsupported') {
       return isIosWithoutHomeScreen()
         ? 'Aggiungi a Home per le notifiche'
@@ -196,7 +197,7 @@ function Lists() {
               {
                 label: pushMenuLabel(),
                 icon: <IconBell size={18} />,
-                disabled: pushState === 'unsupported' || pushState === 'blocked',
+                disabled: pushState !== 'on' && pushState !== 'off',
                 onSelect: togglePush,
               },
             ],

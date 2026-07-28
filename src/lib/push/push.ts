@@ -1,6 +1,6 @@
 import { apiFetch } from '../api/client'
 
-export type PushState = 'unsupported' | 'blocked' | 'off' | 'on'
+export type PushState = 'unsupported' | 'unavailable' | 'blocked' | 'off' | 'on'
 
 /**
  * Su iPhone il Push funziona solo per le web app aggiunte alla schermata Home:
@@ -19,16 +19,35 @@ export function isIosWithoutHomeScreen(): boolean {
   return isIos && !standalone
 }
 
+/**
+ * navigator.serviceWorker.ready non si risolve mai finche un service worker non e
+ * registrato: in sviluppo non lo e affatto, e sul sito vero potrebbe fallire.
+ * Senza limite di tempo lo stato resterebbe in sospeso per sempre e il menu
+ * direbbe "non disponibili" senza che nessuno sappia perche.
+ */
+async function readyRegistration(timeoutMs = 3000): Promise<ServiceWorkerRegistration | null> {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
+
 async function currentSubscription(): Promise<PushSubscription | null> {
-  const registration = await navigator.serviceWorker.ready
-  return registration.pushManager.getSubscription()
+  const registration = await readyRegistration()
+  return registration ? registration.pushManager.getSubscription() : null
 }
 
 export async function getPushState(): Promise<PushState> {
   if (!isPushSupported()) return 'unsupported'
   if (Notification.permission === 'denied') return 'blocked'
 
-  const subscription = await currentSubscription().catch(() => null)
+  // Nessun service worker attivo: il browser saprebbe farlo, ma qui non c'e chi
+  // riceve la notifica. Succede in sviluppo, dove il service worker non viene
+  // registrato affatto.
+  const registration = await readyRegistration().catch(() => null)
+  if (!registration) return 'unavailable'
+
+  const subscription = await registration.pushManager.getSubscription().catch(() => null)
   return subscription ? 'on' : 'off'
 }
 
