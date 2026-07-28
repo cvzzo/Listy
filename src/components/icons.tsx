@@ -110,6 +110,33 @@ export function IconCheckSquare({ size = 18, className }: IconProps) {
   )
 }
 
+export function IconUndo({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h9a7 7 0 0 1 0 14H8" />
+    </svg>
+  )
+}
+
+export function IconRedo({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9h-9a7 7 0 0 0 0 14h5" />
+    </svg>
+  )
+}
+
+export function IconSparkle({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" />
+      <path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z" />
+    </svg>
+  )
+}
+
 export function IconTag({ size = 18, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...base}>

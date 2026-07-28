@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/db'
-import { enqueueAndFlush, enqueueManyAndFlush } from '../lib/sync/engine'
 import { getSession } from '../lib/auth/session'
-import { getFrequentItemNames } from '../lib/db/frequentItems'
+import { getItemMemory } from '../lib/db/frequentItems'
+import {
+  applyChanges,
+  restoreChange,
+  softDeleteChange,
+  type Change,
+} from '../lib/history/changes'
 import {
   IconArrowLeft,
   IconCheckSquare,
@@ -13,12 +18,18 @@ import {
   IconList,
   IconPencil,
   IconPlus,
+  IconRedo,
+  IconSparkle,
   IconSquare,
   IconTag,
   IconTrash,
+  IconUndo,
 } from '../components/icons'
 import ActionMenu from '../components/ActionMenu'
 import Toast from '../components/Toast'
+import { useActionHistory } from '../hooks/useActionHistory'
+import { useCollapsedCategories } from '../hooks/useCollapsedCategories'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUndoToast } from '../hooks/useUndoToast'
 import type { Category, Item } from '../lib/types'
 
@@ -28,14 +39,28 @@ function ListView() {
   const { listId } = useParams<{ listId: string }>()
   const session = getSession()
   const [newItemName, setNewItemName] = useState('')
-  const [newItemCategoryId, setNewItemCategoryId] = useState<string>(UNCATEGORIZED)
+  const [pinnedCategoryId, setPinnedCategoryId] = useState<string | null>(null)
   const [showAddCategory, setShowAddCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingItemName, setEditingItemName] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
   const [addingItemCategoryId, setAddingItemCategoryId] = useState<string | null>(null)
   const [newItemInCategory, setNewItemInCategory] = useState('')
   const { pending, showUndo, confirmUndo, dismiss } = useUndoToast()
+  const { isCollapsed, toggle: toggleCollapsed, expand } = useCollapsedCategories()
+  const { record, undo, redo, undoLabel, redoLabel } = useActionHistory()
+
+  // Il modulo di aggiunta dentro una categoria resta aperto per infilare piu articoli
+  // di fila, e si chiude appena tocchi altrove: "ho finito" e un tocco fuori
+  const inlineAddRef = useRef<HTMLFormElement>(null)
+  useDismissOnOutside(
+    inlineAddRef,
+    () => setAddingItemCategoryId(null),
+    addingItemCategoryId !== null,
+    '.category-add-btn',
+  )
 
   const list = useLiveQuery(async () => (listId ? db.lists.get(listId) : undefined), [listId])
 
@@ -49,23 +74,82 @@ function ListView() {
     return db.items.where('listId').equals(listId).and((i) => !i.deletedAt).sortBy('position')
   }, [listId]) ?? []
 
-  const frequentNames = useLiveQuery(async () => {
+  const memory = useLiveQuery(async () => {
     if (!session) return []
-    return getFrequentItemNames(session.family.id)
+    return getItemMemory(session.family.id)
   }, [session?.family.id]) ?? []
 
   const checkedItems = items.filter((item) => item.checked)
 
   const currentNames = new Set(items.map((i) => i.name.trim().toLowerCase()))
-  const suggestions = frequentNames.filter((name) => !currentNames.has(name.trim().toLowerCase()))
+  const notYetInList = memory.filter((m) => !currentNames.has(m.name.toLowerCase()))
+  const suggestions = notYetInList.slice(0, 8)
+
+  // Il reparto ricordato e un nome: qui torna a essere la categoria di questa lista,
+  // se esiste. Aggiungere "Mele" in una lista senza "Frutta e verdura" non inventa
+  // il reparto, lascia semplicemente l'articolo senza categoria.
+  const categoryIdByName = new Map(categories.map((c) => [c.name.trim().toLowerCase(), c.id]))
+
+  function rememberedCategoryId(name: string): string | null {
+    const entry = memory.find((m) => m.name.toLowerCase() === name.trim().toLowerCase())
+    if (!entry?.categoryName) return null
+    return categoryIdByName.get(entry.categoryName.trim().toLowerCase()) ?? null
+  }
+
+  // pinnedCategoryId null = automatico, cioe deciso da cio che si sta scrivendo
+  const targetCategoryId =
+    pinnedCategoryId === null
+      ? rememberedCategoryId(newItemName)
+      : pinnedCategoryId === UNCATEGORIZED
+        ? null
+        : pinnedCategoryId
+
+  const targetCategoryName =
+    categories.find((c) => c.id === targetCategoryId)?.name ?? 'Senza categoria'
+  // Abbreviato solo a schermo: nella pastiglia "Senza categoria" verrebbe troncato
+  const targetChipLabel = targetCategoryId ? targetCategoryName : 'Senza cat.'
+
+  const typed = newItemName.trim().toLowerCase()
+  const completions = !typed
+    ? []
+    : notYetInList
+        .filter((m) => m.name.toLowerCase().includes(typed))
+        // Chi comincia col testo digitato viene prima; dentro ogni gruppo resta
+        // l'ordine per frequenza che memory ha gia
+        .sort(
+          (a, b) =>
+            Number(b.name.toLowerCase().startsWith(typed)) -
+            Number(a.name.toLowerCase().startsWith(typed)),
+        )
+        .slice(0, 4)
+
+  /**
+   * Ogni azione della lista passa di qui: applica le modifiche e le consegna alla
+   * cronologia, cosi il menu in alto puo sempre tornare indietro e rifarle.
+   * Il toast serve solo dove l'azione fa sparire qualcosa: spuntare un articolo
+   * lo si fa cinquanta volte per spesa, e cinquanta toast sono un fastidio.
+   */
+  async function perform(label: string, forward: Change[], backward: Change[], toast = false) {
+    if (forward.length === 0) return
+    dismiss()
+    await applyChanges(forward)
+    record({ label, forward, backward })
+    if (toast) showUndo(label, undo)
+  }
+
+  const upd = (
+    entity: 'item' | 'category',
+    id: string,
+    local: Record<string, unknown>,
+    payload: Record<string, unknown>,
+  ): Change => ({ kind: 'update', entity, id, op: 'update', local, payload })
 
   async function addItemByName(name: string, categoryId: string | null) {
     if (!name || !listId || !session) return
 
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-
-    await db.items.add({
+    const row: Item = {
       id,
       familyId: session.family.id,
       listId,
@@ -82,31 +166,32 @@ function ListView() {
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
-    })
-    await enqueueAndFlush({
-      id,
-      entity: 'item',
-      op: 'create',
-      payload: { listId, name, categoryId },
-      clientTimestamp: now,
-    })
+    }
+
+    await perform(
+      `Aggiunto "${name}"`,
+      [{ kind: 'create', entity: 'item', id, row, payload: { listId, name, categoryId } }],
+      [softDeleteChange('item', id)],
+    )
   }
 
   async function handleAddItem(e: React.FormEvent) {
     e.preventDefault()
     const name = newItemName.trim()
     if (!name) return
-    await addItemByName(name, newItemCategoryId === UNCATEGORIZED ? null : newItemCategoryId)
+    // Svuota prima delle scritture, altrimenti chi incalza col prossimo articolo
+    // se lo vede cancellare quando lo svuotamento arriva in ritardo
     setNewItemName('')
+    await addItemByName(name, targetCategoryId)
   }
 
   async function handleAddItemToCategory(e: React.FormEvent, categoryId: string) {
     e.preventDefault()
     const name = newItemInCategory.trim()
     if (!name) return
-    await addItemByName(name, categoryId)
-    setNewItemInCategory('')
     // resta aperto per aggiungere più prodotti di fila alla stessa categoria
+    setNewItemInCategory('')
+    await addItemByName(name, categoryId)
   }
 
   async function handleAddCategory(e: React.FormEvent) {
@@ -114,9 +199,12 @@ function ListView() {
     const name = newCategoryName.trim()
     if (!name || !listId || !session) return
 
+    setNewCategoryName('')
+    setShowAddCategory(false)
+
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    await db.categories.add({
+    const row: Category = {
       id,
       familyId: session.family.id,
       listId,
@@ -125,79 +213,49 @@ function ListView() {
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
-    })
-    await enqueueAndFlush({
-      id,
-      entity: 'category',
-      op: 'create',
-      payload: { listId, name },
-      clientTimestamp: now,
-    })
-    setNewCategoryName('')
-    setShowAddCategory(false)
+    }
+
+    await perform(
+      `Aggiunta categoria "${name}"`,
+      [{ kind: 'create', entity: 'category', id, row, payload: { listId, name } }],
+      [softDeleteChange('category', id)],
+    )
   }
 
   async function renameCategory(category: Category, name: string) {
     const trimmed = name.trim()
-    if (!trimmed || trimmed === category.name) {
-      setEditingCategoryId(null)
-      return
-    }
-    const now = new Date().toISOString()
-    await db.categories.update(category.id, { name: trimmed, updatedAt: now })
-    await enqueueAndFlush({
-      id: category.id,
-      entity: 'category',
-      op: 'update',
-      payload: { name: trimmed },
-      clientTimestamp: now,
-    })
     setEditingCategoryId(null)
+    if (!trimmed || trimmed === category.name) return
+
+    await perform(
+      `Categoria rinominata in "${trimmed}"`,
+      [upd('category', category.id, { name: trimmed }, { name: trimmed })],
+      [upd('category', category.id, { name: category.name }, { name: category.name })],
+    )
   }
 
-  // Cancellazione soft di uno o più record, con undo: stessa logica per il cestino del
-  // singolo articolo e per le azioni di massa del menu.
-  async function softDelete(
+  async function deleteEntities(
     entity: 'item' | 'category',
     targets: { id: string }[],
-    undoMessage: string,
+    label: string,
   ) {
-    if (targets.length === 0) return
-    const table = entity === 'item' ? db.items : db.categories
-    const ids = targets.map((t) => t.id)
-    const now = new Date().toISOString()
-
-    await table.bulkUpdate(ids.map((id) => ({ key: id, changes: { deletedAt: now, updatedAt: now } })))
-    await enqueueManyAndFlush(
-      ids.map((id) => ({ id, entity, op: 'delete' as const, payload: {}, clientTimestamp: now })),
+    await perform(
+      label,
+      targets.map((t) => softDeleteChange(entity, t.id)),
+      targets.map((t) => restoreChange(entity, t.id)),
+      true,
     )
-
-    showUndo(undoMessage, async () => {
-      const restoredAt = new Date().toISOString()
-      await table.bulkUpdate(
-        ids.map((id) => ({ key: id, changes: { deletedAt: null, updatedAt: restoredAt } })),
-      )
-      await enqueueManyAndFlush(
-        ids.map((id) => ({
-          id,
-          entity,
-          op: 'update' as const,
-          payload: { deletedAt: null },
-          clientTimestamp: restoredAt,
-        })),
-      )
-    })
   }
 
   async function deleteCategory(category: Category) {
-    await softDelete('category', [category], `Categoria "${category.name}" eliminata`)
+    await deleteEntities('category', [category], `Eliminata categoria "${category.name}"`)
   }
 
   async function deleteAllCategories() {
-    await softDelete(
+    await deleteEntities(
       'category',
       categories,
-      categories.length === 1 ? 'Categoria eliminata' : `${categories.length} categorie eliminate`,
+      categories.length === 1 ? 'Eliminata 1 categoria' : `Eliminate ${categories.length} categorie`,
     )
   }
 
@@ -206,143 +264,119 @@ function ListView() {
     const swapWith = categories[index + direction]
     if (!swapWith) return
 
-    const now = new Date().toISOString()
-    await db.categories.update(category.id, { position: swapWith.position, updatedAt: now })
-    await db.categories.update(swapWith.id, { position: category.position, updatedAt: now })
-    await enqueueAndFlush({
-      id: category.id,
-      entity: 'category',
-      op: 'update',
-      payload: { position: swapWith.position },
-      clientTimestamp: now,
-    })
-    await enqueueAndFlush({
-      id: swapWith.id,
-      entity: 'category',
-      op: 'update',
-      payload: { position: category.position },
-      clientTimestamp: now,
-    })
+    const at = (id: string, position: number) => upd('category', id, { position }, { position })
+
+    await perform(
+      `Spostata categoria "${category.name}"`,
+      [at(category.id, swapWith.position), at(swapWith.id, category.position)],
+      [at(category.id, category.position), at(swapWith.id, swapWith.position)],
+    )
   }
+
+  // Chi ha spuntato viene ricalcolato dal server su chi manda la modifica: in locale
+  // ripristiniamo l'autore originale, dopo il sync il nome mostrato puo cambiare
+  const checkState = (item: Pick<Item, 'checked' | 'checkedBy' | 'checkedByName' | 'checkedAt'>) => ({
+    checked: item.checked,
+    checkedBy: item.checkedBy,
+    checkedByName: item.checkedByName,
+    checkedAt: item.checkedAt,
+  })
 
   async function toggleChecked(item: Item) {
     if (!session) return
     const checked = !item.checked
     const now = new Date().toISOString()
 
-    await db.items.update(item.id, {
-      checked,
-      checkedBy: checked ? session.member.id : null,
-      checkedByName: checked ? session.member.displayName : null,
-      checkedAt: checked ? now : null,
-      updatedAt: now,
-    })
-    await enqueueAndFlush({
-      id: item.id,
-      entity: 'item',
-      op: 'update',
-      payload: { checked },
-      clientTimestamp: now,
-    })
+    const next = checked
+      ? {
+          checked: true,
+          checkedBy: session.member.id,
+          checkedByName: session.member.displayName,
+          checkedAt: now,
+        }
+      : { checked: false, checkedBy: null, checkedByName: null, checkedAt: null }
+
+    await perform(
+      checked ? `Spuntato "${item.name}"` : `Tolta la spunta a "${item.name}"`,
+      [upd('item', item.id, next, { checked })],
+      [upd('item', item.id, checkState(item), { checked: item.checked })],
+    )
+  }
+
+  async function renameItem(item: Item, name: string) {
+    const trimmed = name.trim()
+    setEditingItemId(null)
+    if (!trimmed || trimmed === item.name) return
+
+    await perform(
+      `Rinominato "${item.name}" in "${trimmed}"`,
+      [upd('item', item.id, { name: trimmed }, { name: trimmed })],
+      [upd('item', item.id, { name: item.name }, { name: item.name })],
+    )
+  }
+
+  async function moveItemToCategory(item: Item, categoryId: string | null) {
+    await perform(
+      `Spostato "${item.name}"`,
+      [upd('item', item.id, { categoryId }, { categoryId })],
+      [upd('item', item.id, { categoryId: item.categoryId }, { categoryId: item.categoryId })],
+    )
   }
 
   async function deleteItem(item: Item) {
-    await softDelete('item', [item], `"${item.name}" eliminato`)
+    await deleteEntities('item', [item], `Eliminato "${item.name}"`)
   }
 
   async function deleteCheckedItems() {
-    await softDelete(
+    await deleteEntities(
       'item',
       checkedItems,
       checkedItems.length === 1
-        ? 'Articolo spuntato eliminato'
-        : `${checkedItems.length} articoli spuntati eliminati`,
+        ? 'Eliminato 1 articolo spuntato'
+        : `Eliminati ${checkedItems.length} articoli spuntati`,
     )
   }
 
   async function clearList() {
-    await softDelete(
+    await deleteEntities(
       'item',
       items,
-      items.length === 1 ? 'Articolo eliminato' : `${items.length} articoli eliminati`,
+      items.length === 1 ? 'Eliminato 1 articolo' : `Eliminati ${items.length} articoli`,
     )
   }
 
   async function uncheckAllItems() {
-    if (checkedItems.length === 0) return
-    const snapshot = checkedItems.map((i) => ({
-      id: i.id,
-      checkedBy: i.checkedBy,
-      checkedByName: i.checkedByName,
-      checkedAt: i.checkedAt,
-    }))
-    const now = new Date().toISOString()
+    const cleared = { checked: false, checkedBy: null, checkedByName: null, checkedAt: null }
 
-    await db.items.bulkUpdate(
-      snapshot.map((s) => ({
-        key: s.id,
-        changes: {
-          checked: false,
-          checkedBy: null,
-          checkedByName: null,
-          checkedAt: null,
-          updatedAt: now,
-        },
-      })),
-    )
-    await enqueueManyAndFlush(
-      snapshot.map((s) => ({
-        id: s.id,
-        entity: 'item' as const,
-        op: 'update' as const,
-        payload: { checked: false },
-        clientTimestamp: now,
-      })),
-    )
-
-    showUndo(
-      snapshot.length === 1 ? 'Spunta rimossa' : `${snapshot.length} spunte rimosse`,
-      async () => {
-        const restoredAt = new Date().toISOString()
-        // In locale rimettiamo l'autore originale della spunta; il server invece
-        // riattribuisce a chi annulla, quindi dopo il sync il nome può cambiare.
-        await db.items.bulkUpdate(
-          snapshot.map((s) => ({
-            key: s.id,
-            changes: {
-              checked: true,
-              checkedBy: s.checkedBy,
-              checkedByName: s.checkedByName,
-              checkedAt: s.checkedAt,
-              updatedAt: restoredAt,
-            },
-          })),
-        )
-        await enqueueManyAndFlush(
-          snapshot.map((s) => ({
-            id: s.id,
-            entity: 'item' as const,
-            op: 'update' as const,
-            payload: { checked: true },
-            clientTimestamp: restoredAt,
-          })),
-        )
-      },
+    await perform(
+      checkedItems.length === 1 ? 'Rimossa 1 spunta' : `Rimosse ${checkedItems.length} spunte`,
+      checkedItems.map((i) => upd('item', i.id, cleared, { checked: false })),
+      checkedItems.map((i) => upd('item', i.id, checkState(i), { checked: true })),
+      true,
     )
   }
 
   const categoryIds = new Set(categories.map((c) => c.id))
-  const groups = [...categories, null].map((category) => ({
-    category,
-    items: items
-      .filter((item) =>
-        category
-          ? item.categoryId === category.id
-          : // articoli senza categoria o la cui categoria è stata eliminata
-            !item.categoryId || !categoryIds.has(item.categoryId),
-      )
-      .sort((a, b) => a.position - b.position),
-  }))
+  const byPosition = (a: Item, b: Item) => a.position - b.position
+
+  const groups = [...categories, null].map((category) => {
+    const groupItems = items.filter((item) =>
+      category
+        ? item.categoryId === category.id
+        : // articoli senza categoria o la cui categoria è stata eliminata
+          !item.categoryId || !categoryIds.has(item.categoryId),
+    )
+
+    // Quello che manca resta in cima al reparto, lo spuntato scivola sotto:
+    // durante la spesa la parte utile della lista sta sempre in alto
+    return {
+      category,
+      items: [
+        ...groupItems.filter((i) => !i.checked).sort(byPosition),
+        ...groupItems.filter((i) => i.checked).sort(byPosition),
+      ],
+    }
+  })
 
   // Le categorie che contengono articoli hanno la priorità e restano in alto,
   // ciascun blocco mantiene al suo interno l'ordine per "position".
@@ -361,6 +395,20 @@ function ListView() {
         <ActionMenu
           label="Azioni lista"
           groups={[
+            [
+              {
+                label: undoLabel ? `Annulla: ${undoLabel}` : 'Niente da annullare',
+                icon: <IconUndo size={18} />,
+                disabled: !undoLabel,
+                onSelect: undo,
+              },
+              {
+                label: redoLabel ? `Ripeti: ${redoLabel}` : 'Niente da ripetere',
+                icon: <IconRedo size={18} />,
+                disabled: !redoLabel,
+                onSelect: redo,
+              },
+            ],
             [
               {
                 label: 'Togli tutte le spunte',
@@ -410,6 +458,40 @@ function ListView() {
           // le categorie vere restano sempre visibili per poterle gestire.
           if (!group.category && group.items.length === 0) return null
 
+          // orderedGroups puo differire da categories: per abilitare "sposta su/giu"
+          // conta la posizione reale, non quella a schermo
+          const categoryIndex = group.category
+            ? categories.findIndex((c) => c.id === group.category!.id)
+            : -1
+
+          // La sezione senza categoria non ha un id proprio: la chiave la lega alla lista
+          const collapseKey = group.category ? group.category.id : `${listId}:${UNCATEGORIZED}`
+          const collapsed = isCollapsed(collapseKey)
+          const remaining = group.items.filter((i) => !i.checked).length
+
+          const caret = (
+            <button
+              type="button"
+              className={group.category ? 'category-toggle' : 'category-toggle muted'}
+              aria-expanded={!collapsed}
+              onClick={() => toggleCollapsed(collapseKey)}
+            >
+              <IconChevronDown size={16} className="category-caret" />
+              {group.category ? (
+                <h2>{group.category.name}</h2>
+              ) : (
+                <h2 className="section-label">Senza categoria</h2>
+              )}
+              {/* Il conteggio di cio che manca resta visibile anche a reparto aperto;
+                  sparisce solo dove non c'e proprio niente, che gia lo dice da se */}
+              {group.items.length > 0 && (
+                <span className={remaining === 0 ? 'category-count done' : 'category-count'}>
+                  {remaining}
+                </span>
+              )}
+            </button>
+          )
+
           return (
             <section key={group.category?.id ?? UNCATEGORIZED}>
               {group.category ? (
@@ -426,67 +508,68 @@ function ListView() {
                       }}
                     />
                   ) : (
-                    <h2
-                      onClick={() => {
-                        setEditingCategoryId(group.category!.id)
-                        setEditingCategoryName(group.category!.name)
-                      }}
-                    >
-                      {group.category.name}
-                    </h2>
+                    caret
                   )}
                   <div className="category-actions">
                     <button
                       type="button"
-                      className="category-add-btn"
+                      className="icon-btn-plain category-add-btn"
                       onClick={() => {
-                        setAddingItemCategoryId((prev) =>
-                          prev === group.category!.id ? null : group.category!.id,
-                        )
+                        // Aggiungere a un reparto chiuso lo riapre, altrimenti si
+                        // scriverebbe dentro qualcosa che non si vede
+                        expand(collapseKey)
+                        // Non e piu un interruttore: a chiudere ci pensa il tocco fuori
+                        setAddingItemCategoryId(group.category!.id)
                         setNewItemInCategory('')
                       }}
-                      aria-label="Aggiungi articolo a questa categoria"
+                      aria-label={`Aggiungi articolo a ${group.category.name}`}
                     >
-                      <IconPlus size={18} />
+                      <IconPlus size={20} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => moveCategory(group.category!, -1)}
-                      aria-label="Sposta su"
-                    >
-                      <IconChevronUp />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveCategory(group.category!, 1)}
-                      aria-label="Sposta giù"
-                    >
-                      <IconChevronDown />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingCategoryId(group.category!.id)
-                        setEditingCategoryName(group.category!.name)
-                      }}
-                      aria-label="Rinomina categoria"
-                    >
-                      <IconPencil />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteCategory(group.category!)}
-                      aria-label="Elimina categoria"
-                    >
-                      <IconTrash size={14} />
-                    </button>
+                    <ActionMenu
+                      label={`Azioni categoria ${group.category.name}`}
+                      triggerClassName="icon-btn-plain"
+                      groups={[
+                        [
+                          {
+                            label: 'Rinomina',
+                            icon: <IconPencil size={18} />,
+                            onSelect: () => {
+                              setEditingCategoryId(group.category!.id)
+                              setEditingCategoryName(group.category!.name)
+                            },
+                          },
+                          {
+                            label: 'Sposta su',
+                            icon: <IconChevronUp size={18} />,
+                            disabled: categoryIndex <= 0,
+                            onSelect: () => moveCategory(group.category!, -1),
+                          },
+                          {
+                            label: 'Sposta giù',
+                            icon: <IconChevronDown size={18} />,
+                            disabled: categoryIndex === categories.length - 1,
+                            onSelect: () => moveCategory(group.category!, 1),
+                          },
+                        ],
+                        [
+                          {
+                            label: 'Elimina categoria',
+                            icon: <IconTrash size={18} />,
+                            danger: true,
+                            onSelect: () => deleteCategory(group.category!),
+                          },
+                        ],
+                      ]}
+                    />
                   </div>
                 </div>
               ) : (
-                <h2 className="section-label">Senza categoria</h2>
+                <div className="category-header">{caret}</div>
               )}
-              {group.category && addingItemCategoryId === group.category.id && (
+              {!collapsed && group.category && addingItemCategoryId === group.category.id && (
                 <form
+                  ref={inlineAddRef}
                   className="add-item-inline"
                   onSubmit={(e) => handleAddItemToCategory(e, group.category!.id)}
                 >
@@ -495,44 +578,105 @@ function ListView() {
                     value={newItemInCategory}
                     onChange={(e) => setNewItemInCategory(e.target.value)}
                     placeholder={`Aggiungi a ${group.category.name}`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setAddingItemCategoryId(null)
-                    }}
                   />
-                  <button type="submit" className="pill-btn" aria-label="Aggiungi articolo">
+                  <button
+                    type="submit"
+                    className="pill-btn"
+                    disabled={!newItemInCategory.trim()}
+                    aria-label="Aggiungi articolo"
+                  >
                     <IconPlus size={16} />
                   </button>
                 </form>
               )}
-              {group.items.length > 0 ? (
+              {collapsed ? null : group.items.length > 0 ? (
                 <ul className="items">
-                  {group.items.map((item) => (
-                    <li key={item.id} className={item.checked ? 'checked' : ''}>
-                      <label className="check-row">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={() => toggleChecked(item)}
-                        />
-                        <span className="checkmark" aria-hidden="true" />
-                        <span className="item-name">
-                          {item.name}
-                          {item.quantity ? ` (${item.quantity})` : ''}
-                        </span>
-                      </label>
-                      <span className="added-by">
-                        {item.checked ? `✓ ${item.checkedByName}` : `+ ${item.addedByName}`}
-                      </span>
-                      <button
-                        type="button"
-                        className="icon-btn-ghost"
-                        onClick={() => deleteItem(item)}
-                        aria-label="Elimina articolo"
-                      >
-                        <IconTrash size={15} />
-                      </button>
-                    </li>
-                  ))}
+                  {group.items.map((item) => {
+                    // Una categoria eliminata vale come nessuna: e cosi che la riga
+                    // e gia raggruppata, e cosi deve leggerla anche il menu
+                    const itemCategoryId =
+                      item.categoryId && categoryIds.has(item.categoryId) ? item.categoryId : null
+
+                    return (
+                      <li key={item.id} className={item.checked ? 'checked' : ''}>
+                        {editingItemId === item.id ? (
+                          <input
+                            className="item-edit"
+                            autoFocus
+                            value={editingItemName}
+                            onChange={(e) => setEditingItemName(e.target.value)}
+                            onBlur={() => renameItem(item, editingItemName)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') renameItem(item, editingItemName)
+                              if (e.key === 'Escape') setEditingItemId(null)
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <label className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={item.checked}
+                                onChange={() => toggleChecked(item)}
+                              />
+                              <span className="checkmark" aria-hidden="true" />
+                              <span className="item-name">
+                                {item.name}
+                                {item.quantity ? ` (${item.quantity})` : ''}
+                              </span>
+                            </label>
+                            <span className="added-by">
+                              {item.checked ? `✓ ${item.checkedByName}` : `+ ${item.addedByName}`}
+                            </span>
+                            <ActionMenu
+                              label={`Azioni per ${item.name}`}
+                              triggerClassName="icon-btn-ghost"
+                              placement="auto"
+                              groups={[
+                                [
+                                  {
+                                    label: 'Rinomina',
+                                    icon: <IconPencil size={18} />,
+                                    onSelect: () => {
+                                      setEditingItemId(item.id)
+                                      setEditingItemName(item.name)
+                                    },
+                                  },
+                                ],
+                                // Solo le destinazioni diverse da quella attuale
+                                [
+                                  ...(itemCategoryId !== null
+                                    ? [
+                                        {
+                                          label: 'Sposta senza categoria',
+                                          icon: <IconTag size={18} />,
+                                          onSelect: () => moveItemToCategory(item, null),
+                                        },
+                                      ]
+                                    : []),
+                                  ...categories
+                                    .filter((c) => c.id !== itemCategoryId)
+                                    .map((category) => ({
+                                      label: `Sposta in ${category.name}`,
+                                      icon: <IconTag size={18} />,
+                                      onSelect: () => moveItemToCategory(item, category.id),
+                                    })),
+                                ],
+                                [
+                                  {
+                                    label: 'Elimina articolo',
+                                    icon: <IconTrash size={18} />,
+                                    danger: true,
+                                    onSelect: () => deleteItem(item),
+                                  },
+                                ],
+                              ].filter((g) => g.length > 0)}
+                            />
+                          </>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 <p className="category-empty-hint">Nessun articolo in questa categoria</p>
@@ -543,16 +687,14 @@ function ListView() {
 
         {suggestions.length > 0 && (
           <div className="suggestions">
-            {suggestions.map((name) => (
+            {suggestions.map((entry) => (
               <button
-                key={name}
+                key={entry.name}
                 type="button"
                 className="chip"
-                onClick={() =>
-                  addItemByName(name, newItemCategoryId === UNCATEGORIZED ? null : newItemCategoryId)
-                }
+                onClick={() => addItemByName(entry.name, rememberedCategoryId(entry.name))}
               >
-                + {name}
+                + {entry.name}
               </button>
             ))}
           </div>
@@ -589,21 +731,71 @@ function ListView() {
         />
       )}
 
-      <form onSubmit={handleAddItem} className="bottom-bar bottom-bar-item">
-        <select value={newItemCategoryId} onChange={(e) => setNewItemCategoryId(e.target.value)}>
-          <option value={UNCATEGORIZED}>Senza cat.</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
+      {completions.length > 0 && (
+        <ul className="completions">
+          {completions.map((entry) => (
+            <li key={entry.name}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewItemName('')
+                  addItemByName(entry.name, rememberedCategoryId(entry.name))
+                }}
+              >
+                <span className="completion-name">{entry.name}</span>
+                {entry.categoryName && (
+                  <span className="completion-category">{entry.categoryName}</span>
+                )}
+              </button>
+            </li>
           ))}
-        </select>
+        </ul>
+      )}
+
+      <form onSubmit={handleAddItem} className="bottom-bar bottom-bar-item">
+        <ActionMenu
+          label={`Reparto di destinazione: ${targetCategoryName}`}
+          triggerClassName={pinnedCategoryId === null ? 'target-chip' : 'target-chip pinned'}
+          placement="top-left"
+          triggerContent={<span>{targetChipLabel}</span>}
+          groups={[
+            [
+              // Nessuna voce e disabilitata: qual e la destinazione corrente lo dice
+              // la pastiglia qui sotto, e "grigio" leggerebbe come "non disponibile"
+              {
+                label: 'Automatico',
+                icon: <IconSparkle size={18} />,
+                onSelect: () => setPinnedCategoryId(null),
+              },
+              {
+                label: 'Senza categoria',
+                icon: <IconTag size={18} />,
+                onSelect: () => setPinnedCategoryId(UNCATEGORIZED),
+              },
+            ],
+            // Senza categorie il secondo gruppo resterebbe una riga di separazione vuota
+            ...(categories.length > 0
+              ? [
+                  categories.map((category) => ({
+                    label: category.name,
+                    icon: <IconTag size={18} />,
+                    onSelect: () => setPinnedCategoryId(category.id),
+                  })),
+                ]
+              : []),
+          ]}
+        />
         <input
           value={newItemName}
           onChange={(e) => setNewItemName(e.target.value)}
           placeholder="Aggiungi articolo"
         />
-        <button type="submit" className="fab" aria-label="Aggiungi articolo">
+        <button
+          type="submit"
+          className="fab"
+          disabled={!newItemName.trim()}
+          aria-label="Aggiungi articolo"
+        >
           <IconPlus />
         </button>
       </form>

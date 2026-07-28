@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
+import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { IconMore } from './icons'
 
 type MenuAction = {
@@ -12,47 +13,65 @@ type MenuAction = {
 type ActionMenuProps = {
   label: string
   // Ogni gruppo è separato da una riga: serve a staccare visivamente le azioni
-  // sugli articoli da quelle sulle categorie.
+  // distruttive da quelle ordinarie.
   groups: MenuAction[][]
+  // Il menu delle categorie vive dentro una riga di contenuto, non nell'header,
+  // e usa un pulsante senza sfondo
+  triggerClassName?: string
+  // Di norma l'innesco e l'icona ⋮; nella barra in basso e invece una pastiglia di testo
+  triggerContent?: ReactNode
+  /**
+   * Dove aprire il pannello. 'top-left' e per la barra in basso, che deve sempre
+   * salire; 'auto' e per i menu sparsi nel contenuto, che scendono in cima alla
+   * pagina e salgono in fondo, dove scendendo finirebbero fuori schermo.
+   */
+  placement?: 'bottom-right' | 'top-left' | 'auto'
 }
 
-function ActionMenu({ label, groups }: ActionMenuProps) {
+function ActionMenu({
+  label,
+  groups,
+  triggerClassName = 'icon-btn',
+  triggerContent,
+  placement = 'bottom-right',
+}: ActionMenuProps) {
   const [open, setOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(placement === 'top-left')
   const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
+  useDismissOnOutside(rootRef, () => setOpen(false), open)
 
-    function handlePointerDown(e: PointerEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+  function togglePanel() {
+    if (!open && placement === 'auto' && rootRef.current) {
+      const { bottom } = rootRef.current.getBoundingClientRect()
+      setDropUp(bottom > window.innerHeight * 0.55)
     }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
+    setOpen((prev) => !prev)
+  }
 
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [open])
+  const panelClass = [
+    'menu-panel',
+    dropUp ? 'menu-panel-up' : '',
+    placement === 'top-left' ? 'menu-panel-left' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="menu" ref={rootRef}>
       <button
         type="button"
-        className="icon-btn"
+        className={triggerClassName}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={togglePanel}
       >
-        <IconMore />
+        {triggerContent ?? <IconMore />}
       </button>
 
       {open && (
-        <div className="menu-panel" role="menu" aria-label={label}>
+        <div className={panelClass} role="menu" aria-label={label}>
           {groups.map((actions, groupIndex) => (
             <Fragment key={groupIndex}>
               {groupIndex > 0 && <div className="menu-separator" role="separator" />}

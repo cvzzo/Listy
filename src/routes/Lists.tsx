@@ -32,6 +32,10 @@ function Lists() {
     const name = newListName.trim()
     if (!name || !session) return
 
+    // Svuota subito: farlo dopo le scritture lascia il testo nel campo per qualche
+    // decina di millisecondi e cancella quello che si sta gia digitando
+    setNewListName('')
+
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
     await db.lists.add({
@@ -45,7 +49,6 @@ function Lists() {
       deletedAt: null,
     })
     await enqueueAndFlush({ id, entity: 'list', op: 'create', payload: { name }, clientTimestamp: now })
-    setNewListName('')
   }
 
   async function deleteList(list: List) {
@@ -127,7 +130,7 @@ function Lists() {
               </Link>
               <button
                 type="button"
-                className="icon-btn-ghost"
+                className="icon-btn-ghost danger"
                 onClick={() => deleteList(list)}
                 aria-label="Elimina lista"
               >
@@ -153,7 +156,12 @@ function Lists() {
           onChange={(e) => setNewListName(e.target.value)}
           placeholder="Nuova lista, es. Spesa settimanale"
         />
-        <button type="submit" className="fab" aria-label="Aggiungi lista">
+        <button
+          type="submit"
+          className="fab"
+          disabled={!newListName.trim()}
+          aria-label="Aggiungi lista"
+        >
           <IconPlus />
         </button>
       </form>

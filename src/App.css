@@ -364,11 +364,12 @@ input::placeholder {
 }
 
 .icon-btn-ghost {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -381,10 +382,46 @@ input::placeholder {
     color 0.15s;
 }
 
+/* L'icona resta piccola per non gonfiare la riga, ma l'area toccabile arriva
+   a 44px come chiede WCAG 2.5.5 */
+.icon-btn-ghost::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
 .icon-btn-ghost:hover {
   opacity: 1;
+  background: var(--surface-2);
+  color: var(--text-strong);
+}
+
+/* Quando il pulsante e la cancellazione vera, non un menu che la contiene */
+.icon-btn-ghost.danger:hover {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+/* Pulsante senza sfondo ma con area toccabile piena, per le righe di contenuto */
+.icon-btn-plain {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.icon-btn-plain:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
 }
 
 /* ---------- Menu azioni ---------- */
@@ -400,6 +437,8 @@ input::placeholder {
   right: 0;
   z-index: 20;
   min-width: 240px;
+  max-height: 60svh;
+  overflow-y: auto;
   padding: 6px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
@@ -408,10 +447,34 @@ input::placeholder {
   animation: menu-in 120ms ease-out;
 }
 
+/* Il pannello sale invece di scendere fuori schermo */
+.menu-panel-up {
+  top: auto;
+  bottom: calc(100% + 8px);
+  animation-name: menu-in-up;
+}
+
+/* ...e si ancora a sinistra quando l'innesco sta a sinistra */
+.menu-panel-left {
+  right: auto;
+  left: 0;
+}
+
 @keyframes menu-in {
   from {
     opacity: 0;
     transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes menu-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -467,7 +530,8 @@ input::placeholder {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .menu-panel {
+  .menu-panel,
+  .completions {
     animation: none;
   }
 }
@@ -505,12 +569,92 @@ input::placeholder {
   border-radius: 999px;
 }
 
-.bottom-bar-item select {
+/* Dove finira l'articolo: di norma lo decide lo storico, un tocco lo forza a mano */
+.target-chip {
   flex: 0 0 auto;
-  max-width: 100px;
-  padding: 11px 8px;
+  max-width: 110px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px dashed var(--border);
   border-radius: 999px;
-  font-size: 14px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.target-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Scelto a mano: linea piena, cosi si distingue da quello dedotto */
+.target-chip.pinned {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* Completamenti dallo storico, sopra la barra: sono l'unica cosa che si riesce a
+   guardare mentre la tastiera occupa meta schermo */
+.completions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(70px + var(--safe-bottom));
+  z-index: 11;
+  list-style: none;
+  margin: 0 auto;
+  padding: 6px;
+  width: calc(100% - 24px);
+  max-width: 456px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  animation: menu-in-up 120ms ease-out;
+}
+
+.completions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+}
+
+.completions button:hover {
+  background: var(--surface-2);
+}
+
+.completion-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
+  font-size: 15px;
+}
+
+.completion-category {
+  flex-shrink: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .fab {
@@ -530,9 +674,23 @@ input::placeholder {
     transform 0.12s;
 }
 
-.fab:active {
+.fab:active:not(:disabled) {
   background: var(--accent-strong);
   transform: scale(0.94);
+}
+
+/* Senza nulla da inviare il pulsante lo dice, invece di non fare niente in silenzio */
+.fab:disabled {
+  background: var(--surface-2);
+  color: var(--text);
+  opacity: 0.6;
+  box-shadow: none;
+  cursor: default;
+}
+
+.pill-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* ---------- Empty states ---------- */
@@ -621,17 +779,36 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 0 4px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
-/* Il pallino verde fa da "etichetta di reparto" davanti al nome */
-.category-header h2,
-.section-label {
+/* Tutta la riga del nome apre e chiude il reparto: e il bersaglio piu grande
+   disponibile, e la freccia dice da sola in che stato si trova */
+.category-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.category-toggle:hover {
+  background: var(--surface-2);
+}
+
+.category-toggle h2 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--display);
   font-size: 15px;
   font-weight: 700;
@@ -639,29 +816,54 @@ input::placeholder {
   color: var(--text-strong);
 }
 
-.category-header h2::before,
-.section-label::before {
-  content: '';
-  flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.category-header h2 {
-  min-width: 0;
-  cursor: text;
-}
-
-.section-label {
-  margin-bottom: 10px;
-  padding: 0 4px;
+.category-toggle .section-label {
   color: var(--text);
 }
 
-.section-label::before {
-  background: var(--border);
+.category-caret {
+  flex-shrink: 0;
+  color: var(--accent);
+  transition: transform 0.18s ease;
+}
+
+.category-toggle.muted .category-caret {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.category-toggle[aria-expanded='false'] .category-caret {
+  transform: rotate(-90deg);
+}
+
+/* Quanti articoli restano da prendere in questo reparto */
+.category-count {
+  flex-shrink: 0;
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.category-toggle.muted .category-count {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Reparto finito: l'ambra e la stessa di cio che e gia stato preso */
+.category-count.done,
+.category-toggle.muted .category-count.done {
+  background: var(--checked-bg);
+  color: var(--checked);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-caret {
+    transition: none;
+  }
 }
 
 .category-header input {
@@ -674,29 +876,9 @@ input::placeholder {
 
 .category-actions {
   display: flex;
+  align-items: center;
   gap: 2px;
   flex-shrink: 0;
-}
-
-.category-actions button {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  color: var(--text);
-  opacity: 0.55;
-  transition:
-    opacity 0.15s,
-    background 0.15s;
-}
-
-.category-actions button:hover {
-  opacity: 1;
-  background: var(--surface-2);
 }
 
 .category-empty-hint {
@@ -707,13 +889,13 @@ input::placeholder {
   padding: 2px 6px 4px;
 }
 
-.category-actions button.category-add-btn {
+.category-actions .category-add-btn {
   color: var(--accent);
-  opacity: 1;
 }
 
-.category-actions button.category-add-btn:hover {
+.category-actions .category-add-btn:hover {
   background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .add-item-inline {
@@ -742,7 +924,8 @@ input::placeholder {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  /* Niente overflow: hidden qui, ritaglierebbe il menu di una riga. Le righe non
+     hanno sfondo proprio, quindi non c'e niente da ritagliare agli angoli. */
 }
 
 .items li {
@@ -763,6 +946,12 @@ input::placeholder {
   background: var(--border);
 }
 
+/* Dove finiscono gli articoli da prendere e cominciano quelli presi, il filetto
+   attraversa tutta la riga: e la linea dell'acqua della lista */
+.items li:not(.checked) + li.checked::before {
+  left: 0;
+}
+
 .check-row {
   position: relative;
   flex: 1;
@@ -775,6 +964,12 @@ input::placeholder {
 
 .check-row .item-name {
   padding-top: 2px;
+}
+
+.item-edit {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
 }
 
 .check-row input[type='checkbox'] {
