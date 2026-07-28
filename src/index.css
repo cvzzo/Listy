@@ -1,23 +1,40 @@
 :root {
-  --bg: #f4f5f9;
-  --surface: #ffffff;
-  --surface-2: #f0f1f6;
-  --border: #e6e7ee;
-  --text: #6b6a75;
-  --text-strong: #16151c;
+  /* Neutri caldi: la carta di un sacchetto del pane, non il grigio di un'app */
+  --bg: #faf6ed;
+  --bg-wash: rgba(47, 125, 79, 0.05);
+  --surface: #fffdf8;
+  --surface-2: #f3ecdd;
+  --border: #e7dcc7;
+  --text: #7d7263;
+  --text-strong: #2c2620;
 
-  --accent: #2f7ff0;
-  --accent-strong: #1d5fc4;
-  --accent-bg: rgba(47, 127, 240, 0.1);
-  --success: #16a34a;
-  --success-bg: rgba(22, 163, 74, 0.1);
-  --danger: #e5484d;
+  --accent: #2f7d4f;
+  --accent-strong: #24623d;
+  --accent-bg: rgba(47, 125, 79, 0.1);
+  /* In chiaro l'accento e scuro e regge il bianco; al buio si schiarisce e serve
+     il contrario, altrimenti il "+" del pulsante sparisce */
+  --on-accent: #fffdf8;
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
-  --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.04), 0 1px 1px rgba(20, 20, 40, 0.03);
-  --shadow-md: 0 8px 24px rgba(20, 20, 40, 0.08);
+  /* L'ambra segna cio che e gia stato preso, cosi non compete col verde delle azioni */
+  --checked: #c26a0a;
+  --checked-bg: rgba(194, 106, 10, 0.12);
+  --on-checked: #fffdf8;
+
+  --danger: #b3392b;
+  --danger-bg: rgba(179, 57, 43, 0.1);
+  --on-danger: #fffdf8;
+
+  --scrim: rgba(44, 38, 32, 0.5);
+
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --shadow-sm:
+    0 1px 2px rgba(74, 56, 30, 0.05),
+    0 1px 3px rgba(74, 56, 30, 0.04);
+  --shadow-md:
+    0 10px 30px rgba(74, 56, 30, 0.1),
+    0 2px 8px rgba(74, 56, 30, 0.06);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -25,6 +42,8 @@
   --safe-right: env(safe-area-inset-right, 0px);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Arrotondato dove il sistema ce l'ha (iOS, macOS), altrove degrada al sans */
+  --display: ui-rounded, 'SF Pro Rounded', 'Segoe UI Variable Display', var(--sans);
 
   font: 16px/1.5 var(--sans);
   color-scheme: light dark;
@@ -38,19 +57,35 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e0f13;
-    --surface: #1a1b21;
-    --surface-2: #212228;
-    --border: #2c2d35;
-    --text: #a3a2ad;
-    --text-strong: #f3f3f6;
+    --bg: #17140f;
+    --bg-wash: rgba(111, 178, 135, 0.07);
+    --surface: #201c15;
+    --surface-2: #2b261d;
+    --border: #3b342a;
+    --text: #a89b88;
+    --text-strong: #f6f1e6;
 
-    --accent: #4c8fef;
-    --accent-strong: #6fa4f2;
-    --accent-bg: rgba(76, 143, 239, 0.16);
-    --success: #34c759;
-    --success-bg: rgba(52, 199, 89, 0.16);
-    --danger: #ff6b6f;
+    --accent: #6fb287;
+    --accent-strong: #8dc9a1;
+    --accent-bg: rgba(111, 178, 135, 0.16);
+    --on-accent: #10200f;
+
+    --checked: #e0a34a;
+    --checked-bg: rgba(224, 163, 74, 0.16);
+    --on-checked: #1d1608;
+
+    --danger: #e07a68;
+    --danger-bg: rgba(224, 122, 104, 0.14);
+    --on-danger: #2a0d08;
+
+    --scrim: rgba(8, 6, 4, 0.6);
+
+    --shadow-sm:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 1px 3px rgba(0, 0, 0, 0.2);
+    --shadow-md:
+      0 12px 32px rgba(0, 0, 0, 0.45),
+      0 2px 8px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -61,6 +96,9 @@
 body {
   margin: 0;
   overflow-x: hidden;
+  background-color: var(--bg);
+  background-image: radial-gradient(120% 55% at 50% 0%, var(--bg-wash), transparent 70%);
+  background-attachment: fixed;
 }
 
 #root {
@@ -70,8 +108,9 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--sans);
+  font-family: var(--display);
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text-strong);
   margin: 0;
 }

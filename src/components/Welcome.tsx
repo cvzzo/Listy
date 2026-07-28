@@ -78,8 +78,8 @@ function Welcome({ onFinish }: { onFinish: () => void }) {
       >
         <defs>
           <linearGradient id="welcome-gradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#4c8fef" />
-            <stop offset="100%" stopColor="#2f7ff0" />
+            <stop offset="0%" stopColor="#4a9e6a" />
+            <stop offset="100%" stopColor="#2f7d4f" />
           </linearGradient>
         </defs>
         {dots.map((dot, i) => (

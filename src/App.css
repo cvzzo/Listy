@@ -10,16 +10,26 @@ button {
 
 input,
 select {
-  padding: 10px 12px;
+  padding: 11px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-strong);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
 input::placeholder {
   color: var(--text);
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
 /* ---------- Modal ---------- */
@@ -31,7 +41,7 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 15, 25, 0.45);
+  background: var(--scrim);
   padding: 16px;
   animation: modal-overlay-in 0.15s ease-out;
 }
@@ -40,22 +50,23 @@ input::placeholder {
   width: 100%;
   max-width: 340px;
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 26px;
   box-shadow: var(--shadow-md);
   animation: modal-card-in 0.18s ease-out;
 }
 
 .modal-card h2 {
-  font-size: 17px;
+  font-size: 18px;
   margin-bottom: 8px;
 }
 
 .modal-card p {
   color: var(--text);
   font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 20px;
+  line-height: 1.55;
+  margin-bottom: 22px;
 }
 
 .modal-actions {
@@ -65,9 +76,10 @@ input::placeholder {
 
 .modal-actions button {
   flex: 1;
-  padding: 12px;
+  padding: 13px;
   border-radius: var(--radius-md);
   border: none;
+  font-family: var(--display);
   font-weight: 600;
   font-size: 14px;
 }
@@ -79,7 +91,7 @@ input::placeholder {
 
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
 }
 
 @keyframes modal-overlay-in {
@@ -108,7 +120,7 @@ input::placeholder {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(84px + var(--safe-bottom));
+  bottom: calc(88px + var(--safe-bottom));
   z-index: 40;
   display: flex;
   align-items: center;
@@ -116,10 +128,10 @@ input::placeholder {
   width: calc(100% - 32px);
   max-width: 448px;
   margin: 0 auto;
-  padding: 12px 12px 12px 16px;
+  padding: 13px 12px 13px 18px;
   background: var(--text-strong);
   color: var(--bg);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   box-shadow: var(--shadow-md);
   animation: toast-in 0.2s ease-out;
 }
@@ -136,7 +148,9 @@ input::placeholder {
   flex-shrink: 0;
   background: none;
   border: none;
+  padding: 4px 8px;
   color: var(--accent-strong);
+  font-family: var(--display);
   font-weight: 700;
   font-size: 14px;
 }
@@ -146,10 +160,10 @@ input::placeholder {
   background: none;
   border: none;
   color: var(--bg);
-  opacity: 0.6;
+  opacity: 0.55;
   font-size: 18px;
   line-height: 1;
-  padding: 4px;
+  padding: 4px 6px;
 }
 
 @keyframes toast-in {
@@ -183,15 +197,19 @@ input::placeholder {
   text-align: center;
 }
 
+.home h1 {
+  font-size: 30px;
+}
+
 .home .logo {
-  border-radius: 22%;
+  border-radius: 24%;
   box-shadow: var(--shadow-md);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .subtitle {
   color: var(--text);
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
 .segmented {
@@ -199,19 +217,23 @@ input::placeholder {
   width: 100%;
   padding: 4px;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   margin-bottom: 24px;
 }
 
 .segmented button {
   flex: 1;
   padding: 10px;
-  border-radius: calc(var(--radius-md) - 4px);
+  border-radius: 999px;
   border: none;
   background: transparent;
   color: var(--text);
+  font-family: var(--display);
   font-weight: 600;
   font-size: 14px;
+  transition:
+    background 0.18s,
+    color 0.18s;
 }
 
 .segmented button.active {
@@ -238,18 +260,25 @@ input::placeholder {
 }
 
 .btn-primary {
-  padding: 14px;
+  padding: 15px;
   border-radius: var(--radius-md);
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
+  font-family: var(--display);
   font-weight: 600;
   font-size: 15px;
   margin-top: 4px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s;
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--accent-strong);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .error {
@@ -277,35 +306,35 @@ input::placeholder {
 }
 
 .app-header-title h1 {
-  font-size: 19px;
+  font-size: 20px;
   line-height: 1.2;
 }
 
 .list-title {
   flex: 1;
   min-width: 0;
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .invite-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 5px;
   font-size: 13px;
 }
 
 .invite-code {
   font-weight: 700;
-  letter-spacing: 0.5px;
-  color: var(--text-strong);
+  letter-spacing: 1px;
+  color: var(--accent);
 }
 
 .pill-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -326,6 +355,12 @@ input::placeholder {
   color: var(--text-strong);
   flex-shrink: 0;
   text-decoration: none;
+  transition: background 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .icon-btn-ghost {
@@ -339,10 +374,16 @@ input::placeholder {
   background: transparent;
   color: var(--text);
   flex-shrink: 0;
+  opacity: 0.65;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .icon-btn-ghost:hover {
-  background: var(--surface-2);
+  opacity: 1;
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
@@ -358,7 +399,7 @@ input::placeholder {
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  min-width: 236px;
+  min-width: 240px;
   padding: 6px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
@@ -381,7 +422,7 @@ input::placeholder {
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
   padding: 11px 12px;
   border: none;
@@ -404,6 +445,10 @@ input::placeholder {
 
 .menu-item:hover:not(:disabled) {
   background: var(--surface-2);
+}
+
+.menu-item.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
 }
 
 .menu-item:disabled {
@@ -434,7 +479,7 @@ input::placeholder {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px 16px calc(100px + var(--safe-bottom));
+  padding: 20px 16px calc(104px + var(--safe-bottom));
   box-sizing: border-box;
 }
 
@@ -448,7 +493,7 @@ input::placeholder {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px calc(10px + var(--safe-bottom));
+  padding: 11px 16px calc(11px + var(--safe-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 10;
@@ -457,31 +502,37 @@ input::placeholder {
 .bottom-bar input {
   flex: 1;
   min-width: 0;
+  border-radius: 999px;
 }
 
 .bottom-bar-item select {
   flex: 0 0 auto;
-  max-width: 96px;
-  padding: 10px 6px;
+  max-width: 100px;
+  padding: 11px 8px;
+  border-radius: 999px;
   font-size: 14px;
 }
 
 .fab {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-sm);
+  transition:
+    background 0.15s,
+    transform 0.12s;
 }
 
 .fab:active {
   background: var(--accent-strong);
+  transform: scale(0.94);
 }
 
 /* ---------- Empty states ---------- */
@@ -529,14 +580,23 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   color: var(--text-strong);
   text-decoration: none;
-  font-weight: 500;
+  font-family: var(--display);
+  font-weight: 600;
+  transition:
+    border-color 0.15s,
+    transform 0.12s;
+}
+
+.list-card-link:active {
+  transform: scale(0.99);
+  border-color: var(--accent);
 }
 
 .list-card-name {
@@ -547,14 +607,14 @@ input::placeholder {
 
 .chevron {
   flex-shrink: 0;
-  color: var(--text);
-  opacity: 0.5;
+  color: var(--accent);
+  opacity: 0.6;
 }
 
 /* ---------- List view ---------- */
 
 .list-view section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .category-header {
@@ -563,22 +623,51 @@ input::placeholder {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
-  padding: 0 2px;
+  padding: 0 4px;
+}
+
+/* Il pallino verde fa da "etichetta di reparto" davanti al nome */
+.category-header h2,
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text-strong);
+}
+
+.category-header h2::before,
+.section-label::before {
+  content: '';
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 .category-header h2 {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text);
+  min-width: 0;
   cursor: text;
+}
+
+.section-label {
+  margin-bottom: 10px;
+  padding: 0 4px;
+  color: var(--text);
+}
+
+.section-label::before {
+  background: var(--border);
 }
 
 .category-header input {
   font-size: 15px;
   font-weight: 600;
-  padding: 4px 8px;
+  padding: 6px 10px;
   min-width: 0;
   flex: 1;
 }
@@ -599,7 +688,10 @@ input::placeholder {
   background: transparent;
   border-radius: 50%;
   color: var(--text);
-  opacity: 0.6;
+  opacity: 0.55;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
 }
 
 .category-actions button:hover {
@@ -610,9 +702,9 @@ input::placeholder {
 .category-empty-hint {
   font-size: 13px;
   color: var(--text);
-  opacity: 0.45;
+  opacity: 0.5;
   font-style: italic;
-  padding: 2px 4px 4px;
+  padding: 2px 6px 4px;
 }
 
 .category-actions button.category-add-btn {
@@ -637,37 +729,38 @@ input::placeholder {
 
 .add-item-inline .pill-btn {
   flex-shrink: 0;
-  padding: 4px 12px;
+  padding: 5px 14px;
 }
 
-.section-label {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text);
-  margin-bottom: 10px;
-  padding: 0 2px;
-}
-
+/* Gli articoli di una categoria vivono in un unico foglio, separati da filetti
+   rientrati: meno bordi a schermo, il reparto si legge come un blocco solo */
 .items {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.items li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 10px 10px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.items li {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 10px 12px 16px;
+}
+
+.items li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: 1px;
+  background: var(--border);
 }
 
 .check-row {
@@ -702,20 +795,22 @@ input::placeholder {
   align-items: center;
   justify-content: center;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.18s;
 }
 
 .check-row input:checked + .checkmark {
-  background: var(--success);
-  border-color: var(--success);
+  background: var(--checked);
+  border-color: var(--checked);
+  animation: check-pop 0.24s ease-out;
 }
 
 .check-row input:checked + .checkmark::after {
   content: '';
   width: 6px;
   height: 11px;
-  border: solid #fff;
+  border: solid var(--on-checked);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg) translate(-1px, -1px);
 }
@@ -723,6 +818,18 @@ input::placeholder {
 .check-row input:focus-visible + .checkmark {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .item-name {
@@ -733,7 +840,8 @@ input::placeholder {
 
 .items li.checked .item-name {
   text-decoration: line-through;
-  opacity: 0.5;
+  text-decoration-color: var(--checked);
+  opacity: 0.45;
 }
 
 .items li .added-by {
@@ -743,34 +851,53 @@ input::placeholder {
   white-space: nowrap;
 }
 
+.items li.checked .added-by {
+  color: var(--checked);
+  opacity: 0.85;
+}
+
 .suggestions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 4px 0 20px;
+  margin: 4px 0 22px;
 }
 
 .chip {
-  padding: 7px 14px;
+  padding: 7px 15px;
   min-height: 32px;
   border-radius: 999px;
   border: 1px solid var(--accent);
   background: var(--accent-bg);
   color: var(--accent);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.chip:active {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .add-category-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 14px;
-  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  border-radius: 999px;
   border: 1px dashed var(--border);
   background: transparent;
   color: var(--text);
   font-size: 14px;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.add-category-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .add-category-form {
@@ -781,4 +908,10 @@ input::placeholder {
 .add-category-form input {
   flex: 1;
   min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-row input:checked + .checkmark {
+    animation: none;
+  }
 }
