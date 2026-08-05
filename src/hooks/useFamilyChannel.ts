@@ -15,22 +15,24 @@ export type MutationEvent = { by?: Actor } & (
 
 export function useFamilyChannel(onMutation: (event: MutationEvent) => void) {
   const handlerRef = useRef(onMutation)
+  // Cambiando famiglia cambia il canale: la sottoscrizione va rifatta, altrimenti
+  // si continuerebbe ad ascoltare quella di prima
+  const familyId = getSession()?.family.id
 
   useEffect(() => {
     handlerRef.current = onMutation
   })
 
   useEffect(() => {
-    const session = getSession()
-    if (!session) return
+    if (!familyId) return
 
     const client = getAblyClient()
-    const channel = client.channels.get(`family:${session.family.id}`)
+    const channel = client.channels.get(`family:${familyId}`)
     const listener = (message: Message) => handlerRef.current(message.data as MutationEvent)
 
     channel.subscribe('mutation', listener)
     return () => {
       channel.unsubscribe('mutation', listener)
     }
-  }, [])
+  }, [familyId])
 }

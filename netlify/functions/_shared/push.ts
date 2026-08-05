@@ -1,7 +1,7 @@
 import webpush from 'web-push'
 import { and, eq, inArray, ne } from 'drizzle-orm'
 import { getDb } from '../../../db/client'
-import { pushSubscriptions } from '../../../db/schema'
+import { families, pushSubscriptions } from '../../../db/schema'
 
 /**
  * Il server gira in UTC ma la famiglia no: senza fuso esplicito una spesa delle
@@ -26,6 +26,15 @@ export function formatWhen(date: Date): string {
   return `${dayFormat.format(date)} alle ${timeFormat.format(date)}`
 }
 
+/**
+ * L'indirizzo di una lista dentro una notifica. La famiglia viaggia nel link
+ * perche chi tocca la notifica puo avere l'app aperta su un'altra: e l'app, non
+ * l'utente, a doverci passare sopra.
+ */
+export function listUrl(familyId: string, listId: string): string {
+  return `/liste/${listId}?famiglia=${familyId}`
+}
+
 let configured = false
 
 function configure() {
@@ -45,6 +54,11 @@ function configure() {
 export type PushPayload = {
   title: string
   body: string
+  /**
+   * Dove porta il tocco sulla notifica. Ci si aggiunge la famiglia: lo stesso
+   * dispositivo puo riceverne da piu famiglie, e aprire la lista giusta senza dire
+   * di chi e vorrebbe dire mostrarla mentre l'app sta guardando un'altra famiglia.
+   */
   url: string
   /**
    * Notifiche con lo stesso tag si sostituiscono a vicenda. I tre avvisi di una
@@ -71,21 +85,28 @@ export async function sendToFamily(
   configure()
   const db = getDb()
 
-  const subscriptions = await db
-    .select()
-    .from(pushSubscriptions)
-    .where(
-      exceptMemberId
-        ? and(
-            eq(pushSubscriptions.familyId, familyId),
-            ne(pushSubscriptions.memberId, exceptMemberId),
-          )
-        : eq(pushSubscriptions.familyId, familyId),
-    )
+  const [subscriptions, [family]] = await Promise.all([
+    db
+      .select()
+      .from(pushSubscriptions)
+      .where(
+        exceptMemberId
+          ? and(
+              eq(pushSubscriptions.familyId, familyId),
+              ne(pushSubscriptions.memberId, exceptMemberId),
+            )
+          : eq(pushSubscriptions.familyId, familyId),
+      ),
+    db.select({ name: families.name }).from(families).where(eq(families.id, familyId)),
+  ])
 
   if (subscriptions.length === 0) return { sent: 0, removed: 0 }
 
-  const body = JSON.stringify(payload)
+  // Da chi arriva: due famiglie possono avere entrambe una lista "Spesa", e sulla
+  // schermata di blocco non c'e altro modo di distinguerle
+  const body = JSON.stringify(
+    family ? { ...payload, body: `${payload.body} · ${family.name}` } : payload,
+  )
   const stale: string[] = []
   let sent = 0
 
@@ -107,14 +128,16 @@ export async function sendToFamily(
         sent += 1
       } catch (err) {
         const statusCode = (err as { statusCode?: number }).statusCode
-        if (statusCode === 404 || statusCode === 410) stale.push(sub.id)
+        if (statusCode === 404 || statusCode === 410) stale.push(sub.endpoint)
         else console.error('push failed', sub.endpoint, statusCode)
       }
     }),
   )
 
+  // Un endpoint morto lo e per tutte le famiglie a cui il dispositivo era iscritto,
+  // non solo per questa: si cancella ovunque, non riga per riga
   if (stale.length > 0) {
-    await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.id, stale))
+    await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.endpoint, stale))
   }
 
   return { sent, removed: stale.length }

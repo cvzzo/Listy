@@ -1,4 +1,5 @@
 import { apiFetch } from '../api/client'
+import { getSessions, type Session } from '../auth/session'
 
 export type PushState = 'unsupported' | 'unavailable' | 'blocked' | 'off' | 'on'
 
@@ -65,6 +66,26 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
+/**
+ * Il browser da una sola iscrizione per dispositivo, ma le famiglie sono tante e
+ * ognuna manda le sue notifiche: la stessa iscrizione va quindi depositata presso
+ * ciascuna, con il token di quella famiglia. Il server ne tiene una riga per
+ * coppia (dispositivo, famiglia).
+ */
+async function registerWithEveryFamily(subscription: PushSubscription) {
+  const { endpoint, keys } = subscription.toJSON() as {
+    endpoint: string
+    keys: { p256dh: string; auth: string }
+  }
+  const body = JSON.stringify({ endpoint, keys })
+
+  await Promise.all(
+    getSessions().map((session) =>
+      apiFetch('/push-subscribe', { method: 'POST', body }, session),
+    ),
+  )
+}
+
 export async function enablePush(): Promise<PushState> {
   if (!isPushSupported()) return 'unsupported'
 
@@ -82,28 +103,54 @@ export async function enablePush(): Promise<PushState> {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     }))
 
-  const { endpoint, keys } = subscription.toJSON() as {
-    endpoint: string
-    keys: { p256dh: string; auth: string }
-  }
-  await apiFetch('/push-subscribe', {
-    method: 'POST',
-    body: JSON.stringify({ endpoint, keys }),
-  })
-
+  await registerWithEveryFamily(subscription)
   return 'on'
+}
+
+/**
+ * Ripassa da tutte le famiglie con l'iscrizione che il dispositivo ha gia. Serve
+ * quando se ne raggiunge una nuova mentre le notifiche erano attive, e all'avvio,
+ * per quelle a cui il dispositivo non si era ancora presentato. E idempotente:
+ * riscrivere una riga che c'e gia non cambia niente. Senza notifiche attive non
+ * c'e niente da fare.
+ */
+export async function registerPushForAllFamilies() {
+  const subscription = await currentSubscription().catch(() => null)
+  if (!subscription) return
+  // Un fallimento non ha conseguenze visibili adesso: si recupera riattivando le
+  // notifiche, che ripassa da tutte le famiglie
+  await registerWithEveryFamily(subscription).catch(() => {})
+}
+
+/**
+ * Toglie questo dispositivo da una famiglia sola, lasciando le altre. Va chiamata
+ * prima di dimenticare la sessione: dopo, non ci sarebbe piu il token per farlo e
+ * la famiglia continuerebbe a mandare notifiche a chi se n'e andato.
+ */
+export async function unregisterPushForFamily(session: Session) {
+  const subscription = await currentSubscription().catch(() => null)
+  if (!subscription) return
+
+  await apiFetch(
+    '/push-subscribe',
+    { method: 'DELETE', body: JSON.stringify({ endpoint: subscription.endpoint }) },
+    session,
+  ).catch(() => {})
 }
 
 export async function disablePush(): Promise<PushState> {
   const subscription = await currentSubscription().catch(() => null)
   if (!subscription) return 'off'
 
-  // Prima il server: se il dispositivo si disiscrive e la riga resta, continueremmo
-  // a mandare notifiche a un endpoint morto finche il servizio push non lo dichiara
-  await apiFetch('/push-subscribe', {
-    method: 'DELETE',
-    body: JSON.stringify({ endpoint: subscription.endpoint }),
-  }).catch(() => {})
+  // Prima il server, e per ogni famiglia: se il dispositivo si disiscrive e le righe
+  // restano, continueremmo a mandare notifiche a un endpoint morto finche il
+  // servizio push non lo dichiara tale
+  const body = JSON.stringify({ endpoint: subscription.endpoint })
+  await Promise.all(
+    getSessions().map((session) =>
+      apiFetch('/push-subscribe', { method: 'DELETE', body }, session).catch(() => {}),
+    ),
+  )
 
   await subscription.unsubscribe()
   return 'off'

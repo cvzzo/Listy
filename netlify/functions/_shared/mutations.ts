@@ -3,7 +3,7 @@ import { getDb } from '../../../db/client'
 import { categories, items, lists } from '../../../db/schema'
 import type { SessionPayload } from './auth'
 import { publishMutation } from './ably'
-import { formatWhen, sendToFamily } from './push'
+import { formatWhen, listUrl, sendToFamily } from './push'
 import { HttpError } from './response'
 
 export type MutationEntity = 'list' | 'category' | 'item'
@@ -116,7 +116,7 @@ async function announceShoppingDate(
       {
         title: `${session.displayName} ha fissato la spesa`,
         body: `${listName} — ${formatWhen(shoppingAt)}`,
-        url: `/liste/${listId}`,
+        url: listUrl(session.familyId, listId),
         tag: `lista-${listId}-fissata`,
       },
       session.memberId,

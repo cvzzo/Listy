@@ -1,5 +1,5 @@
 import type { Handler } from '@netlify/functions'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../../db/client'
 import { pushSubscriptions } from '../../db/schema'
 import { json, HttpError } from './_shared/response'
@@ -14,7 +14,16 @@ export const handler: Handler = async (event) => {
     if (!endpoint) throw new HttpError(400, 'endpoint is required')
 
     if (event.httpMethod === 'DELETE') {
-      await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint))
+      // Solo l'iscrizione di questo dispositivo per questa famiglia: chi spegne le
+      // notifiche lo fa una famiglia per volta, e nessuno puo togliere quelle altrui
+      await db
+        .delete(pushSubscriptions)
+        .where(
+          and(
+            eq(pushSubscriptions.endpoint, endpoint),
+            eq(pushSubscriptions.familyId, session.familyId),
+          ),
+        )
       return json(200, { ok: true })
     }
 
@@ -24,8 +33,9 @@ export const handler: Handler = async (event) => {
     const auth = String(body.keys?.auth ?? '')
     if (!p256dh || !auth) throw new HttpError(400, 'keys are required')
 
-    // Lo stesso endpoint puo tornare dopo un cambio di famiglia o di membro sullo
-    // stesso dispositivo: allora va riassegnato, non duplicato
+    // Una riga per dispositivo e famiglia. Riscrivere la stessa coppia significa
+    // che il membro e cambiato o che le chiavi sono state rigenerate: si aggiorna,
+    // non si duplica. Le iscrizioni alle altre famiglie restano dove sono.
     await db
       .insert(pushSubscriptions)
       .values({
@@ -37,8 +47,8 @@ export const handler: Handler = async (event) => {
         auth,
       })
       .onConflictDoUpdate({
-        target: pushSubscriptions.endpoint,
-        set: { familyId: session.familyId, memberId: session.memberId, p256dh, auth },
+        target: [pushSubscriptions.endpoint, pushSubscriptions.familyId],
+        set: { memberId: session.memberId, p256dh, auth },
       })
 
     return json(201, { ok: true })

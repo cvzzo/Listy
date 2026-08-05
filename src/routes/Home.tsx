@@ -1,44 +1,9 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, ApiError } from '../lib/api/client'
-import { setSession } from '../lib/auth/session'
-import type { Family, Member } from '../lib/types'
+import FamilyAuthForm from '../components/FamilyAuthForm'
 
-type AuthResponse = { token: string; family: Family; member: Member }
-
+/** La prima apertura, quando il dispositivo non conosce ancora nessuna famiglia. */
 function Home() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<'create' | 'join'>('create')
-  const [familyName, setFamilyName] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      const res =
-        mode === 'create'
-          ? await apiFetch<AuthResponse>('/family-create', {
-              method: 'POST',
-              body: JSON.stringify({ familyName, displayName }),
-            })
-          : await apiFetch<AuthResponse>('/family-join', {
-              method: 'POST',
-              body: JSON.stringify({ inviteCode, displayName }),
-            })
-
-      setSession(res)
-      navigate('/liste')
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Errore imprevisto')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <main className="home">
@@ -47,62 +12,7 @@ function Home() {
         <h1>Listy</h1>
         <p className="subtitle">La lista della spesa condivisa in famiglia.</p>
 
-        <div className="segmented">
-          <button
-            type="button"
-            className={mode === 'create' ? 'active' : ''}
-            onClick={() => setMode('create')}
-          >
-            Crea famiglia
-          </button>
-          <button
-            type="button"
-            className={mode === 'join' ? 'active' : ''}
-            onClick={() => setMode('join')}
-          >
-            Unisciti
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          {mode === 'create' && (
-            <label>
-              Nome famiglia
-              <input
-                value={familyName}
-                onChange={(e) => setFamilyName(e.target.value)}
-                placeholder="es. Famiglia Rossi"
-                required
-              />
-            </label>
-          )}
-          {mode === 'join' && (
-            <label>
-              Codice invito
-              <input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="es. AB12CD"
-                required
-              />
-            </label>
-          )}
-          <label>
-            Il tuo nome
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="es. Marco"
-              required
-            />
-          </label>
-
-          {error && <p className="error">{error}</p>}
-
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {mode === 'create' ? 'Crea famiglia' : 'Unisciti'}
-          </button>
-        </form>
+        <FamilyAuthForm onDone={() => navigate('/liste')} />
       </div>
     </main>
   )

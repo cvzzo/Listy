@@ -107,8 +107,9 @@ export const pushSubscriptions = pgTable(
     memberId: uuid('member_id')
       .notNull()
       .references(() => members.id, { onDelete: 'cascade' }),
-    // L'endpoint identifica il singolo dispositivo: e la chiave naturale, il
-    // browser ne restituisce uno diverso per ogni installazione
+    // L'endpoint identifica il singolo dispositivo: il browser ne restituisce uno
+    // diverso per ogni installazione. Da solo pero non basta come chiave: lo stesso
+    // dispositivo puo stare in piu famiglie e va avvisato per ognuna
     endpoint: text('endpoint').notNull(),
     p256dh: text('p256dh').notNull(),
     auth: text('auth').notNull(),
@@ -117,7 +118,8 @@ export const pushSubscriptions = pgTable(
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint),
+    // Una riga per dispositivo e per famiglia: e questa coppia a essere unica
+    uniqueIndex('push_subscriptions_endpoint_family_idx').on(t.endpoint, t.familyId),
     index('push_subscriptions_family_idx').on(t.familyId),
   ],
 )

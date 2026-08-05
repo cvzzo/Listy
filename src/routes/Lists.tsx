@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, clearLocalData } from '../lib/db/db'
+import { db, clearFamilyData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
-import { clearSession, getSession } from '../lib/auth/session'
+import { closeAblyClient } from '../lib/ably/client'
+import { getSession, getSessions, removeSession } from '../lib/auth/session'
+import { shareInviteCode } from '../lib/invite/share'
 import {
+  IconArrowLeft,
   IconBell,
   IconCalendar,
   IconCart,
@@ -24,6 +27,8 @@ import {
   enablePush,
   getPushState,
   isIosWithoutHomeScreen,
+  registerPushForAllFamilies,
+  unregisterPushForFamily,
   type PushState,
 } from '../lib/push/push'
 import { useUndoToast } from '../hooks/useUndoToast'
@@ -40,7 +45,12 @@ function Lists() {
   const [pushError, setPushError] = useState<string | null>(null)
 
   useEffect(() => {
-    getPushState().then(setPushState)
+    getPushState().then((state) => {
+      setPushState(state)
+      // Le famiglie raggiunte mentre le notifiche erano gia attive non hanno mai
+      // visto questo dispositivo: qui si presenta a tutte, una volta per avvio
+      if (state === 'on') registerPushForAllFamilies()
+    })
   }, [])
 
   async function togglePush() {
@@ -152,27 +162,22 @@ function Lists() {
     })
   }
 
-  async function handleLogout() {
+  async function handleLeaveFamily() {
     setConfirmLogout(false)
-    await clearLocalData()
-    clearSession()
-    navigate('/')
+    if (!session) return
+
+    // Esce da questa famiglia soltanto: le altre restano sul dispositivo, con i
+    // loro dati, la loro coda e le loro notifiche
+    await unregisterPushForFamily(session)
+    removeSession(session.family.id)
+    await clearFamilyData(session.family.id)
+    closeAblyClient()
+    navigate(getSessions().length > 0 ? '/famiglie' : '/')
   }
 
   async function handleShareInvite() {
     if (!session) return
-    const text = `Unisciti alla nostra lista della spesa su Listy! Codice invito: ${session.family.inviteCode}`
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Listy', text })
-      } catch {
-        // condivisione annullata dall'utente, nessuna azione necessaria
-      }
-      return
-    }
-
-    await navigator.clipboard.writeText(text)
+    if ((await shareInviteCode(session.family)) !== 'copied') return
     setInviteCopied(true)
     setTimeout(() => setInviteCopied(false), 2000)
   }
@@ -180,6 +185,10 @@ function Lists() {
   return (
     <main className="lists-page">
       <header className="app-header">
+        {/* Sopra le liste c'e l'elenco delle famiglie: da li si passa da una all'altra */}
+        <Link to="/famiglie" className="icon-btn" aria-label="Le tue famiglie">
+          <IconArrowLeft />
+        </Link>
         <div className="app-header-title">
           <h1>{session?.family.name}</h1>
           <div className="invite-row">
@@ -203,7 +212,7 @@ function Lists() {
             ],
             [
               {
-                label: 'Esci dalla famiglia',
+                label: 'Esci da questa famiglia',
                 icon: <IconLogout size={18} />,
                 danger: true,
                 onSelect: () => setConfirmLogout(true),
@@ -317,12 +326,12 @@ function Lists() {
       <ConfirmDialog
         open={confirmLogout}
         title="Uscire dalla famiglia?"
-        message={`Uscirai da "${session?.family.name}" su questo dispositivo. Potrai rientrare in qualsiasi momento con il codice invito.`}
+        message={`Uscirai da "${session?.family.name}" su questo dispositivo. Le altre famiglie restano. Potrai rientrare in qualsiasi momento con il codice invito.`}
         confirmLabel="Esci"
         cancelLabel="Annulla"
         danger
         onCancel={() => setConfirmLogout(false)}
-        onConfirm={handleLogout}
+        onConfirm={handleLeaveFamily}
       />
     </main>
   )

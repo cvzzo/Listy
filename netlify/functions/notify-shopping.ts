@@ -2,7 +2,7 @@ import type { Config } from '@netlify/functions'
 import { and, eq, gte, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '../../db/client'
 import { lists } from '../../db/schema'
-import { formatWhen, sendToFamily } from './_shared/push'
+import { formatWhen, listUrl, sendToFamily } from './_shared/push'
 
 
 /**
@@ -62,7 +62,7 @@ export default async () => {
     const result = await sendToFamily(list.familyId, {
       title: 'Domani si fa la spesa',
       body: `${list.name} — ${formatWhen(list.shoppingAt!)}`,
-      url: `/liste/${list.id}`,
+      url: listUrl(list.familyId, list.id),
       tag: `lista-${list.id}-domani`,
     })
     sent += result.sent
@@ -74,7 +74,7 @@ export default async () => {
     const result = await sendToFamily(list.familyId, {
       title: 'E ora di fare la spesa',
       body: list.name,
-      url: `/liste/${list.id}`,
+      url: listUrl(list.familyId, list.id),
       tag: `lista-${list.id}-ora`,
       // Questa e la sola che conviene resti a schermo: e il momento in cui serve
       keepOpen: true,

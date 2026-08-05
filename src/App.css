@@ -298,7 +298,9 @@ input::placeholder {
   box-shadow: var(--shadow-sm);
 }
 
-.home form {
+/* Lo stesso modulo serve alla prima apertura e nella pagina delle famiglie:
+   lo stile sta sulla classe, non sul posto in cui si trova */
+.auth-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -306,7 +308,7 @@ input::placeholder {
   text-align: left;
 }
 
-.home form label {
+.auth-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -361,9 +363,18 @@ input::placeholder {
   justify-content: flex-start;
 }
 
+/* Con la freccia a sinistra e il menu a destra, il titolo si prende il resto */
+.app-header-title {
+  flex: 1;
+  min-width: 0;
+}
+
 .app-header-title h1 {
   font-size: 20px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .list-title {
@@ -862,6 +873,51 @@ input::placeholder {
   flex-shrink: 0;
   color: var(--accent);
   opacity: 0.6;
+}
+
+/* ---------- Families page ---------- */
+
+/* Stessa scheda delle liste, ma e un pulsante: il bottone non eredita ne la
+   larghezza piena ne l'allineamento a sinistra che un link ha per natura */
+.family-card {
+  width: 100%;
+  text-align: left;
+  gap: 10px;
+}
+
+/* Quella aperta adesso: un filo di accento, non un colore pieno, perche le altre
+   restano scelte altrettanto valide */
+.family-card.active {
+  border-color: var(--accent);
+  background: var(--bg-wash);
+}
+
+.family-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.family-member {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-family {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 26px;
+  padding: 20px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 /* ---------- List view ---------- */
