@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { apiFetch, ApiError } from '../lib/api/client'
 import { addSession, type Session } from '../lib/auth/session'
+import { joinFamily } from '../lib/invite/join'
+import ConfirmDialog from './ConfirmDialog'
 import type { Family, Member } from '../lib/types'
 
 type AuthResponse = { token: string; family: Family; member: Member }
@@ -23,35 +25,46 @@ function FamilyAuthForm({ onDone, initialMode = 'create' }: FamilyAuthFormProps)
   const [inviteCode, setInviteCode] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [hint, setHint] = useState<string | null>(null)
+  const [nameTaken, setNameTaken] = useState(false)
   const [loading, setLoading] = useState(false)
+  const nameInput = useRef<HTMLInputElement>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function attempt(claimExisting: boolean) {
     setError(null)
+    setHint(null)
     setLoading(true)
     try {
-      // Senza sessione: creare o unirsi non richiede un token, e mandare quello
-      // della famiglia attiva confonderebbe le acque
-      const res =
-        mode === 'create'
-          ? await apiFetch<AuthResponse>(
-              '/family-create',
-              { method: 'POST', body: JSON.stringify({ familyName, displayName }) },
-              null,
-            )
-          : await apiFetch<AuthResponse>(
-              '/family-join',
-              { method: 'POST', body: JSON.stringify({ inviteCode, displayName }) },
-              null,
-            )
+      if (mode === 'create') {
+        // Senza sessione: creare una famiglia non richiede un token, e mandare
+        // quello della famiglia attiva confonderebbe le acque
+        const res = await apiFetch<AuthResponse>(
+          '/family-create',
+          { method: 'POST', body: JSON.stringify({ familyName, displayName }) },
+          null,
+        )
+        addSession(res)
+        onDone(res)
+        return
+      }
 
-      addSession(res)
-      onDone(res)
+      const result = await joinFamily(inviteCode, displayName.trim(), claimExisting)
+      // Quel nome e gia di qualcuno: prima di prenderselo va chiesto
+      if (result.status === 'name_taken') setNameTaken(true)
+      else onDone(result.session)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Errore imprevisto')
     } finally {
       setLoading(false)
     }
+  }
+
+  /** Non era lui: si torna al campo, che e li che va risolta la cosa. */
+  function pickAnotherName() {
+    setNameTaken(false)
+    setHint('Scegli un nome diverso, così gli altri vi riconoscono.')
+    nameInput.current?.focus()
+    nameInput.current?.select()
   }
 
   return (
@@ -73,7 +86,13 @@ function FamilyAuthForm({ onDone, initialMode = 'create' }: FamilyAuthFormProps)
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="auth-form">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          attempt(false)
+        }}
+        className="auth-form"
+      >
         {mode === 'create' && (
           <label>
             Nome famiglia
@@ -99,6 +118,7 @@ function FamilyAuthForm({ onDone, initialMode = 'create' }: FamilyAuthFormProps)
         <label>
           Il tuo nome
           <input
+            ref={nameInput}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="es. Marco"
@@ -106,12 +126,26 @@ function FamilyAuthForm({ onDone, initialMode = 'create' }: FamilyAuthFormProps)
           />
         </label>
 
+        {hint && <p className="invite-hint">{hint}</p>}
         {error && <p className="error">{error}</p>}
 
         <button type="submit" className="btn-primary" disabled={loading}>
           {mode === 'create' ? 'Crea famiglia' : 'Unisciti'}
         </button>
       </form>
+
+      <ConfirmDialog
+        open={nameTaken}
+        title="Questo nome è già in uso"
+        message={`In questa famiglia c'è già qualcuno che si chiama ${displayName.trim()}. Sei tu, che entri da un altro dispositivo?`}
+        confirmLabel="Sì, sono io"
+        cancelLabel="No, cambio nome"
+        onCancel={pickAnotherName}
+        onConfirm={() => {
+          setNameTaken(false)
+          attempt(true)
+        }}
+      />
     </>
   )
 }

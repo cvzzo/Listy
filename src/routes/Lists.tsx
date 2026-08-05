@@ -5,7 +5,7 @@ import { db, clearFamilyData } from '../lib/db/db'
 import { enqueueAndFlush } from '../lib/sync/engine'
 import { closeAblyClient } from '../lib/ably/client'
 import { getSession, getSessions, removeSession } from '../lib/auth/session'
-import { shareInviteCode } from '../lib/invite/share'
+import { shareInvite } from '../lib/invite/share'
 import {
   IconArrowLeft,
   IconBell,
@@ -177,7 +177,7 @@ function Lists() {
 
   async function handleShareInvite() {
     if (!session) return
-    if ((await shareInviteCode(session.family)) !== 'copied') return
+    if ((await shareInvite(session.family)) !== 'copied') return
     setInviteCopied(true)
     setTimeout(() => setInviteCopied(false), 2000)
   }

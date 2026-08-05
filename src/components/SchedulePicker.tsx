@@ -22,7 +22,7 @@ function ScheduleForm({ listName, value, onSave, onCancel }: Omit<SchedulePicker
       <h2>Quando andare?</h2>
       <p>Lo vedra tutta la famiglia accanto a "{listName}".</p>
 
-      <label className="schedule-field">
+      <label className="modal-field">
         Data e ora
         <input
           type="datetime-local"

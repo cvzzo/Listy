@@ -69,7 +69,7 @@ input::placeholder {
   margin-bottom: 22px;
 }
 
-.schedule-field {
+.modal-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -79,8 +79,36 @@ input::placeholder {
   color: var(--text);
 }
 
-.schedule-field input {
+.modal-field input {
   width: 100%;
+}
+
+/* ---------- Invito ---------- */
+
+.invite-loading {
+  margin: 0;
+  text-align: center;
+}
+
+/* Non e un errore ma un suggerimento: stesso posto, tono diverso */
+.invite-hint {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Nella modale il campo porta gia il suo margine sotto: la riga risale per restare
+   attaccata a lui invece che ai pulsanti. Nel modulo disteso ci pensa il gap. */
+.modal-card .invite-hint,
+.modal-card .invite-error {
+  margin: -12px 0 16px;
+}
+
+/* La modale dell'invito e l'unica cosa in pagina: il logo dietro non deve
+   sembrare una schermata da cui si e arrivati */
+.invite-backdrop {
+  pointer-events: none;
 }
 
 .modal-actions {

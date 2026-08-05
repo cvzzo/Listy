@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Home from './routes/Home'
 import Families from './routes/Families'
+import Invite from './routes/Invite'
 import Lists from './routes/Lists'
 import ListView from './routes/ListView'
 import SyncManager from './components/SyncManager'
@@ -33,6 +34,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={getSession() ? <Navigate to="/liste" replace /> : <Home />} />
+      {/* Il link d'invito e per chi arriva da fuori: nessuna sessione richiesta, e
+          vale anche per chi in quella famiglia c'e gia */}
+      <Route path="/invito/:code" element={<Invite />} />
       {/* L'elenco delle famiglie ha senso solo se ce n'e almeno una: altrimenti la
           pagina da mostrare e quella per crearne o raggiungerne una */}
       <Route

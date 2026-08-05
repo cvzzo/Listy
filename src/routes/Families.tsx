@@ -12,7 +12,7 @@ import {
   setActiveFamily,
   type Session,
 } from '../lib/auth/session'
-import { shareInviteCode } from '../lib/invite/share'
+import { shareInvite } from '../lib/invite/share'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import FamilyAuthForm from '../components/FamilyAuthForm'
@@ -85,7 +85,7 @@ function Families() {
   }
 
   async function share(session: Session) {
-    if ((await shareInviteCode(session.family)) !== 'copied') return
+    if ((await shareInvite(session.family)) !== 'copied') return
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -106,7 +106,7 @@ function Families() {
 
       {copied && (
         <div className="activity-notice" role="status">
-          Codice invito copiato
+          Link d'invito copiato
         </div>
       )}
 
@@ -140,7 +140,7 @@ function Families() {
                   groups={[
                     [
                       {
-                        label: 'Condividi codice invito',
+                        label: "Condividi il link d'invito",
                         icon: <IconShare size={18} />,
                         onSelect: () => share(session),
                       },
