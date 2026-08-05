@@ -133,12 +133,17 @@ function Lists() {
 
   async function deleteList(list: List) {
     const now = new Date().toISOString()
-    await db.lists.update(list.id, { deletedAt: now, updatedAt: now })
+    await db.lists.update(list.id, {
+      deletedAt: now,
+      // Come lo scrive il server, cosi chi ha la lista aperta lo vede subito
+      deletedByName: session?.member.displayName ?? null,
+      updatedAt: now,
+    })
     await enqueueAndFlush({ id: list.id, entity: 'list', op: 'delete', payload: {}, clientTimestamp: now })
 
     showUndo(`"${list.name}" eliminata`, async () => {
       const restoredAt = new Date().toISOString()
-      await db.lists.update(list.id, { deletedAt: null, updatedAt: restoredAt })
+      await db.lists.update(list.id, { deletedAt: null, deletedByName: null, updatedAt: restoredAt })
       await enqueueAndFlush({
         id: list.id,
         entity: 'list',

@@ -28,7 +28,10 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
   if (m.op === 'delete') {
     const [row] = await db
       .update(lists)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      // Il nome resta attaccato alla riga: chi ha la lista aperta su un altro
+      // telefono deve poter dire di chi e stata la mano, anche se la notizia gli
+      // arriva dalla sincronizzazione e non dal canale in tempo reale
+      .set({ deletedAt: new Date(), deletedByName: session.displayName, updatedAt: new Date() })
       .where(and(eq(lists.id, m.id), eq(lists.familyId, session.familyId)))
       .returning()
     if (row) await publishMutation(session, 'list', row)
@@ -68,7 +71,11 @@ async function applyListMutation(session: SessionPayload, m: MutationInput) {
   const changes: Record<string, unknown> = { updatedAt: new Date() }
   if (typeof m.payload.name === 'string') changes.name = m.payload.name
   if (typeof m.payload.position === 'number') changes.position = m.payload.position
-  if (m.payload.deletedAt === null) changes.deletedAt = null
+  if (m.payload.deletedAt === null) {
+    changes.deletedAt = null
+    // Riportata indietro: di chi l'aveva eliminata non importa piu niente a nessuno
+    changes.deletedByName = null
+  }
 
   // La chiave presente con valore nullo significa "togli la data", non "non toccarla"
   const changingDate = 'shoppingAt' in m.payload

@@ -21,6 +21,8 @@ export type List = {
   createdAt: string
   updatedAt: string
   deletedAt: string | null
+  /** Chi l'ha eliminata. Le righe eliminate prima di questo campo non ce l'hanno. */
+  deletedByName?: string | null
 }
 
 export type Category = {

@@ -67,6 +67,13 @@ export const lists = pgTable(
       .notNull()
       .defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Chi l'ha eliminata, per nome come checkedByName sugli articoli. Serve a chi
+     * la lista ce l'ha aperta davanti: si vede sparire il pavimento sotto i piedi
+     * e la prima cosa che vuole sapere e di chi e stata la mano. Torna a null
+     * quando la lista viene riportata indietro.
+     */
+    deletedByName: text('deleted_by_name'),
   },
   (t) => [index('lists_family_idx').on(t.familyId)],
 )

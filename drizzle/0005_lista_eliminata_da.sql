@@ -1,0 +1,1 @@
+ALTER TABLE "lists" ADD COLUMN "deleted_by_name" text;

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/db'
+import { enqueueAndFlush } from '../lib/sync/engine'
 import { getSession } from '../lib/auth/session'
 import { getItemMemory } from '../lib/db/frequentItems'
 import {
@@ -27,6 +28,7 @@ import {
   IconUndo,
 } from '../components/icons'
 import ActionMenu from '../components/ActionMenu'
+import ConfirmDialog from '../components/ConfirmDialog'
 import SchedulePicker from '../components/SchedulePicker'
 import Toast from '../components/Toast'
 import { formatWhen, isPast } from '../lib/format/when'
@@ -40,6 +42,7 @@ const UNCATEGORIZED = '__uncategorized__'
 
 function ListView() {
   const { listId } = useParams<{ listId: string }>()
+  const navigate = useNavigate()
   const session = getSession()
   const [newItemName, setNewItemName] = useState('')
   const [pinnedCategoryId, setPinnedCategoryId] = useState<string | null>(null)
@@ -169,8 +172,28 @@ function ListView() {
     )
   }
 
+  /**
+   * Riporta indietro la lista per tutti. La cronologia non c'entra: non e un'azione
+   * di questo dispositivo da annullare, e la risposta a quella di qualcun altro.
+   */
+  async function restoreList() {
+    if (!list) return
+    const now = new Date().toISOString()
+    await db.lists.update(list.id, { deletedAt: null, deletedByName: null, updatedAt: now })
+    await enqueueAndFlush({
+      id: list.id,
+      entity: 'list',
+      op: 'update',
+      payload: { deletedAt: null },
+      clientTimestamp: now,
+    })
+  }
+
   async function addItemByName(name: string, categoryId: string | null) {
     if (!name || !listId || !session) return
+    // Fra il tocco e la scrittura la lista puo essere stata eliminata da un altro
+    // telefono: quel che si aggiunge ora non lo vedrebbe piu nessuno
+    if (list?.deletedAt) return
 
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
@@ -761,6 +784,24 @@ function ListView() {
           </button>
         )}
       </div>
+
+      {/* Eliminata mentre la si stava usando. La modale copre tutto: continuare a
+          scrivere qui dentro vorrebbe dire riempire una lista che gli altri non
+          vedono piu. Toccare fuori equivale a tornare indietro, che e l'uscita
+          senza conseguenze. */}
+      <ConfirmDialog
+        open={Boolean(list?.deletedAt)}
+        title={
+          list?.deletedByName
+            ? `${list.deletedByName} ha eliminato questa lista`
+            : 'Questa lista è stata eliminata'
+        }
+        message="Quello che aggiungi ora non lo vedrebbe nessuno. Puoi riportarla indietro per tutti, oppure tornare alle tue liste."
+        cancelLabel="Torna alle liste"
+        confirmLabel="Riportala indietro"
+        onCancel={() => navigate('/liste')}
+        onConfirm={restoreList}
+      />
 
       <SchedulePicker
         open={scheduling}

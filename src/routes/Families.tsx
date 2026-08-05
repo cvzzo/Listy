@@ -41,15 +41,18 @@ function Families() {
   }, [])
 
   const familyIds = sessions.map((s) => s.family.id)
-  const counts = useLiveQuery(async () => {
+  // Quante liste ha ciascuna famiglia. Sommare gli articoli di tutte le liste
+  // dava un numero che non corrisponde a niente che si veda entrando: qui dentro
+  // le liste sono la cosa che si conta.
+  const listCounts = useLiveQuery(async () => {
     const map = new Map<string, number>()
     for (const familyId of familyIds) {
       map.set(
         familyId,
-        await db.items
+        await db.lists
           .where('familyId')
           .equals(familyId)
-          .and((i) => !i.deletedAt && !i.checked)
+          .and((l) => !l.deletedAt)
           .count(),
       )
     }
@@ -113,7 +116,7 @@ function Families() {
       <div className="page-content">
         <ul className="list-cards">
           {sessions.map((session) => {
-            const remaining = counts?.get(session.family.id) ?? 0
+            const lists = listCounts?.get(session.family.id) ?? 0
             const isActive = session.family.id === activeFamilyId
 
             return (
@@ -130,7 +133,12 @@ function Families() {
                       <span className="family-member">come {session.member.displayName}</span>
                     </span>
                   </span>
-                  {remaining > 0 && <span className="count-badge">{remaining}</span>}
+                  {/* Il numero da solo non direbbe di cosa: a voce lo dice l'etichetta */}
+                  {lists > 0 && (
+                    <span className="count-badge" aria-label={lists === 1 ? '1 lista' : `${lists} liste`}>
+                      {lists}
+                    </span>
+                  )}
                   <IconChevronRight className="chevron" />
                 </button>
                 <ActionMenu
